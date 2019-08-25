@@ -1,0 +1,13 @@
+language: go
+go:
+    - 1.9
+before_install:
+    - go get github.com/songgao/water
+install:
+    - go get github.com/ICKelin/openotr/notrd
+    - go get github.com/ICKelin/openotr/notr
+before_script:
+script:
+    - cd $HOME/gopath/src/github.com/ICKelin/opennotr
+    - ./build.sh
+

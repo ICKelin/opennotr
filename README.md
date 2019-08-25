@@ -1,4 +1,7 @@
 ## opennotr
+[![Build Status](https://travis-ci.org/ICKelin/opennotr.svg?branch=master)](https://travis-ci.org/ICKelin/opennotr)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ICKelin/opennotr)](https://goreportcard.com/report/github.com/ICKelin/opennotr)
+
 opennotr是[notr](http://www.notr.tech)的开源版本，是Notr的最初版本，思路来源于我个人另外一个开源项目[gtun](https://github.com/ICKelin/gtun)，提供http和https内网穿透功能。Notr软件在考虑大量引入etcd，这一老版本兼容成本过高，所以将其源代码开放。
 
 ### 定位
