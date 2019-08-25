@@ -2,11 +2,11 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os/exec"
 	"runtime"
 	"strings"
 
-	"github.com/ICKelin/glog"
 	"github.com/songgao/water"
 )
 
@@ -76,7 +76,7 @@ func setupDevice(dev, ip string) (err error) {
 		cmdlist = append(cmdlist, &CMD{cmd: "route", args: args})
 
 	default:
-		glog.FATAL("not support windows")
+		log.Println("not support windows")
 		return
 	}
 
