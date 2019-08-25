@@ -4,8 +4,8 @@ go:
 before_install:
     - go get github.com/songgao/water
 install:
-    - go get github.com/ICKelin/openotr/notrd
-    - go get github.com/ICKelin/openotr/notr
+    - go get github.com/ICKelin/opennotr/notrd
+    - go get github.com/ICKelin/opennotr/notr
 before_script:
 script:
     - cd $HOME/gopath/src/github.com/ICKelin/opennotr
