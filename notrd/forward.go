@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync"
 
-	"github.com/ICKelin/gtun/common"
+	"github.com/ICKelin/opennotr/common"
 )
 
 type ForwardConfig struct {
@@ -50,7 +50,7 @@ func (forward *Forward) Broadcast(sndqueue chan *NotrClientContext, buff []byte)
 	forward.table.Range(func(key, val interface{}) bool {
 		conn, ok := val.(net.Conn)
 		if ok {
-			bytes, _ := common.Encode(common.C2C_DATA, buff)
+			bytes := common.Encode(common.C2C_DATA, buff)
 			sndqueue <- &NotrClientContext{conn: conn, payload: bytes}
 		}
 		return true
@@ -63,10 +63,7 @@ func (forward *Forward) Peer(sndqueue chan *NotrClientContext, dst string, buff 
 		return fmt.Errorf("%s offline", dst)
 	}
 
-	bytes, err := common.Encode(common.C2C_DATA, buff)
-	if err != nil {
-		return err
-	}
+	bytes := common.Encode(common.C2C_DATA, buff)
 	sndqueue <- &NotrClientContext{conn: c, payload: bytes}
 
 	return nil
