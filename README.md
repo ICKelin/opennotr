@@ -2,66 +2,55 @@
 [![Build Status](https://travis-ci.org/ICKelin/opennotr.svg?branch=master)](https://travis-ci.org/ICKelin/opennotr)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ICKelin/opennotr)](https://goreportcard.com/report/github.com/ICKelin/opennotr)
 
-opennotr是[notr](http://www.notr.tech)的开源版本，是Notr的最初版本，思路来源于我个人另外一个开源项目[gtun](https://github.com/ICKelin/gtun)，提供http和https内网穿透功能。Notr软件在考虑大量引入etcd，这一老版本兼容成本过高，所以将其源代码开放。
+opennotr旨在提供一个简单易用的内网穿透功能，让使用者能够快速实现内网穿透，目前可以支持http，https穿透。如果您需要以下功能，可以考虑使用[其他版本](http://www.notr.tech)
 
-### 定位
-相比与notr而言，opennotr只保留最原生态的内网穿透功能，opennotr的是开源项目。opennotr会对notr的以下功能进行削减：
+- 快速开始，零配置，不需要购买域名和云服务器
+- tcp穿透
+- 节点高可用，最佳节点选择
 
-- registry, registry是notr pro非常核心的组件，可以说是最核心的组件之一，但是最主要的目的是负载均衡以及尽可能的让用户少配置，加入到opennotr当中会涉及更多的交互代码，会让代码阅读人员抓不到重点。
+### 依赖
+- nginx
+- route
+- tap driver(windows)
 
-- 用户中心，用户中心主要是用户相关的配置，包括用户名，授权码，限速，域名配置等，自身也是涉及非常多业务，不是一个我心中认为的opensource项目应该做的事。
+验证nginx是否安装，验证 route/ip ro 命令是否可用
 
-- dns, dns也是notr最核心的组件之一，支撑所有与域名相关的配置，部分代码抽取成[notrn](https://github.com/ICKelin/notrns)，后期改成coredns+etcd结合，这个dns项目基本上算是放弃了，感兴趣可以去了解[coredns](https://github.com/coredns/coredns)和[etcd](https://github.com/etcd-io/etcd)这两个项目
+### 下载运行
 
-### 核心思路
-opennotr的核心是VPN+Nginx，opennotr-client和opennotr-server组成一个内网，在这个内网的基础之上，opennotr-server所在的机器上任何应用程序都可以通过内网IP访问opennotr-client。Nginx也是位于opennotr-server服务器上的一个应用程序，最直观的感受就是nginx反向代理到内网的httpserver（大家都知道这是不可能的事）
+**运行server**
 
-![核心思路](arch.jpg)
+server需要在有公网IP的服务器运行
 
-## 配置
-
-opennotr-server配置:
 ```
+wget https://github.com/ICKelin/opennotr/releases/download/v1.0.0/opennotr-server_linux
+
+vi server.conf
 
 {
     "device_ip": "100.64.241.1",
     "listen": ":9641",
-    "tap": false,
+    "tap": false,   ---------------------> 是否使用tap模式，如果客户端是windows，tap=true
     "client":[
         {
-            "auth_key": "client authorize key",
-            "domain": "192.168.31.2"
+            "auth_key": "client authorize key",  ---------------> 客户端验证token
+            "domain": "120.78.8.241" -----------------> 针对客户端的域名，不配置域名填server所在的服务器的公网IP
         }
     ]
 }
+
+./opennotr-server_linux -conf server.conf
+
+验证是否运行成功
+ifconfig 查看本地是否启动 tun* 网卡
+
 ```
 
-opennotr-client没有配置，采用命令行参数的方式
-
+**运行客户端**
 ```
-➜  notr ./notr -h
-./notr [OPTIONS]
-Options:
+./opennotr-client_darwin_amd64 -http 8000 -auth "client authorize key" -srv "opennotr-server监听的地址"
 
-  -auth string
-    	authorize token
-  -http int
-    	local http server port
-  -https int
-    	local https server port
-  -srv string
-    	server address
-  -tcp string
-    	local tcp port list, seperate by ","
-  -v	print version
-
-example:
-   ./notr -http 8000 -s 127.0.0.1:9409
-   ./notr -https 443 -s 127.0.0.1:9409
-   ./notr -tcp 22,25 -s 127.0.0.1:9409
-   ./notr -http 8000 -https 443 -tcp 22,25 -s 127.0.0.1:9409
-   ./notr -https 443 -auth "YOUR AUTH TOKEN" -s 127.0.0.1:9409
-
+验证是否启动成功:
+ping 100.64.241.1
 ```
 
 ## Thanks
