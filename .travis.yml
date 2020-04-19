@@ -1,11 +1,12 @@
 language: go
 go:
-    - 1.9
+    - 1.13
 before_install:
     - go get github.com/songgao/water
 install:
     - go get github.com/ICKelin/opennotr/notrd
     - go get github.com/ICKelin/opennotr/notr
+    - go get go.etcd.io/etcd/clientv3
 before_script:
 script:
     - cd $HOME/gopath/src/github.com/ICKelin/opennotr
