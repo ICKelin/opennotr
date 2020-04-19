@@ -1,0 +1,16 @@
+[server]
+listen="127.0.0.1:9092"
+authKey="client server exchange key"
+domain="notr.tech"
+
+[gateway]
+cidr="192.168.100.1/24"
+ip="192.168.100.1"
+
+[proxy]
+confDir="/etc/nginx/sites-enabled/"
+cert="/etc/nginx/certs/tls.crt"
+key="/etc/nginx/certs/tls.key"
+
+[resolver]
+etcdEndpoints=["http://localhost:2379"]

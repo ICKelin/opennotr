@@ -2,35 +2,60 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
-)
 
-var (
-	flgConf = flag.String("conf", "./etc/notrd.conf", "config file path")
-	version string
+	"github.com/ICKelin/opennotr/device"
+	"github.com/ICKelin/opennotr/notrd/config"
+	"github.com/ICKelin/opennotr/notrd/gateway"
+	"github.com/ICKelin/opennotr/notrd/proxy"
+	"github.com/ICKelin/opennotr/notrd/server"
 )
 
 func main() {
+	confpath := flag.String("conf", "", "config file path")
 	flag.Parse()
-	conf, err := ParseConfig(*flgConf)
-	if err != nil {
-		log.Println("parse config fail: ", err)
-		return
-	}
 
-	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
-
-	s, err := NewServer(&ServerConfig{
-		serverAddr: conf.LocalListener,
-		deviceIP:   conf.LocalIP,
-		clients:    conf.Clients,
-		tapDev:     conf.Tap,
-	})
-
+	cfg, err := config.Parse(*confpath)
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
-	log.Println(s.Serve())
+	// 初始化网卡设备
+	dev, err := device.New()
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer dev.Close()
+
+	err = dev.SetIP(cfg.GatewayConfig.Cidr, cfg.GatewayConfig.Cidr)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	err = dev.SetRoute(cfg.GatewayConfig.Cidr, cfg.GatewayConfig.IP)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// 初始化网关
+	gw := gateway.New(cfg.GatewayConfig.Cidr)
+
+	// 初始化代理
+	p := proxy.New(cfg.ProxyConfig.ConfigDir, cfg.ProxyConfig.CertFile, cfg.ProxyConfig.KeyFile)
+
+	// 初始化域名解析配置
+	resolver, err := server.NewResolve(cfg.ResolverConfig.EtcdEndpoints)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	// 启动tcp server
+	s := server.New(cfg.ServerConfig, gw, p, dev, resolver)
+	fmt.Println(s.ListenAndServe())
 }

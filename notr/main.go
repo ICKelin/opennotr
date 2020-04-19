@@ -1,34 +1,23 @@
 package main
 
 import (
-	"fmt"
-)
+	"flag"
+	"log"
 
-var (
-	version string
+	"github.com/ICKelin/opennotr/notr/client"
+	"github.com/ICKelin/opennotr/notr/config"
 )
 
 func main() {
-	opts, err := ParseArgs()
+	confpath := flag.String("conf", "", "config file path")
+	flag.Parse()
+
+	cfg, err := config.Parse(*confpath)
 	if err != nil {
-		fmt.Println(err)
+		log.Println(err)
 		return
 	}
 
-	clientCfg := &ClientConfig{
-		authKey:        opts.authKey,
-		serverAddr:     opts.serverAddr,
-		isWin:          opts.supportWin,
-		localHttpPort:  opts.httpPort,
-		localHttpsPort: opts.httpsPort,
-		tcpports:       opts.tcpPorts,
-	}
-
-	client, err := NewClient(clientCfg)
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-
-	client.Run()
+	cli := client.New(cfg)
+	cli.Run()
 }

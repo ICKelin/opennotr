@@ -1,0 +1,5 @@
+serverAddr="holenat.net:9092"
+key="client server exchange key"
+http=8080
+https=4443
+grpc=8800
