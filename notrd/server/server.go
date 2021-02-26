@@ -123,10 +123,12 @@ func (s *Server) onConn(conn net.Conn) {
 	// 如果使用内网模式，域名解析为vip，需要启动客户端才能访问，安全性较好
 	// 如果使用公网模式，域名解析为public_ip公网地址，通过公网服务器即可访问，安全性较差
 	// 目前只支持公网模式
-	err = s.resolver.ApplyDomain(auth.Domain, publicIP())
-	if err != nil {
-		log.Printf("resolve domain fail: %v\n", err)
-		return
+	if s.resolver != nil {
+		err = s.resolver.ApplyDomain(auth.Domain, publicIP())
+		if err != nil {
+			log.Printf("resolve domain fail: %v\n", err)
+			return
+		}
 	}
 
 	s.p.Add(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)

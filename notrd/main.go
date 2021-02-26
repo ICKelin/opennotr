@@ -49,12 +49,14 @@ func main() {
 	p := proxy.New(cfg.ProxyConfig.ConfigDir, cfg.ProxyConfig.CertFile, cfg.ProxyConfig.KeyFile)
 
 	// 初始化域名解析配置
-	resolver, err := server.NewResolve(cfg.ResolverConfig.EtcdEndpoints)
-	if err != nil {
-		log.Println(err)
-		return
+	var resolver *server.Resolver
+	if len(cfg.ResolverConfig.EtcdEndpoints) > 0 {
+		resolver, err = server.NewResolve(cfg.ResolverConfig.EtcdEndpoints)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 	}
-
 	// 启动tcp server
 	s := server.New(cfg.ServerConfig, gw, p, dev, resolver)
 	fmt.Println(s.ListenAndServe())
