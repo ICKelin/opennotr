@@ -4,79 +4,95 @@
 
 opennotr旨在提供一个简单易用的内网穿透功能，让使用者能够快速实现内网穿透，目前可以支持http，https, grpc穿透。
 
-opennotr本质上是一个vpn，在底层构建的vpn基础之上，集成了coredns作为域名解析模块，并利用了nginx的http，https和grpc的反向代理功能。
+### opennotr是什么
+opennotr是一个内网穿透项目，在[gtun](https://github.com/ICKelin/gtun)的基础之上改造而成，也是收费软件[Notr](https://www.notr.tech)的开源版本。
 
-## 安装运行
+从技术层面，opennotr本质上是一个vpn，在底层构建的vpn基础之上，并利用了nginx的http，https和grpc的反向代理功能，另外，如果您有一定的网络技术基础，我们也支持使用coredns做动态域名解析，需要您购买自己的域名，设置ns记录指向您的coredns所在的机器的ip。
 
-### 运行server端
-server端需要运行在具备公网ip的服务器上，server作为各个客户端的**虚拟路由器**，负责vhost的分配，代理，客户端长连接隧道等。
+## 如何使用opennotr
 
-**安装依赖**
+**前置条件**
 
-- nginx
-- iproute2
-- coredns+etcd
+- 安装nginx
+- 安装有iptables， iproute2等基础软件
+- 一台具备公网IP的linux服务器和一台内网linux机器，配置不作太大要求。
 
-确保服务器能够正确执行`ifconfig`,`ip ro`命令
+**第一步：安装服务端程序notrd**
 
-配置文件实例:
+在公网Linux服务器上进行。
 
-config.toml
+```
+wget https://github.com/ICKelin/opennotr/releases/download/v0.0.1/notrd_linux_amd64
+wget https://github.com/ICKelin/opennotr/releases/download/v0.0.1/notrd.toml
+```
+
+修改notrd配置文件，以下为一个实例参考
 ```
 [server]
-listen="127.0.0.1:9092" # server监听地址
-authKey="client server exchange key" #校验客户端的token
-domain="open.notr.tech" # 系统使用的域名
+# notrd监听地址
+listen=":9092"
+# 客户端鉴权token
+authKey="client server exchange key"
 
+# vpn网络信息
 [gateway]
-cidr="192.168.100.1/24" # ip地址分配
-ip="192.168.100.1" # 网关地址/本地地址
+cidr="100.64.240.1/24"
+ip="100.64.240.1“
 
 [proxy]
-confDir="/etc/nginx/sites-enabled/" # nginx配置目录
-cert="/etc/nginx/certs/tls.crt" # https证书路径
-key="/etc/nginx/certs/tls.key" # https秘钥路径
+# nginx 配置文件目录
+confDir="/etc/nginx/sites-enabled/"
+# nginx证书路径
+cert="/etc/nginx/certs/tls.crt"
+# nginx私钥路径
+key="/etc/nginx/certs/tls.key"
 
+# 域名解析信息，可以不填
 [resolver]
-etcdEndpoints=["http://localhost:2379"]  # etcd配置
-
+# etcd endpoints
+etcdEndpoints=["http://localhost:2379"]%  
 ```
 
+配置完成之后，启动ngnix，启动notrd
 ```
-sudo ./opennotrd -conf config.toml
-```
-
-### 运行client
-client只支持linux，确保服务器能够正确执行`ifconfig`,`ip ro`命令
-
-配置文件实例
-config.toml
-```
-serverAddr="holenat.net:9092" # server地址
-key="client server exchange key" # client验证key
-http=8080 # 本地http端口
-https=4443 # 本地https端口
-grpc=8800 # 本地grpc端口
-
+./notrd -conf notrd.toml
 ```
 
-```
-sudo ./opennotr -conf config.toml
+**第二步：运行客户端程序**
 
 ```
+wget https://github.com/ICKelin/opennotr/releases/download/v0.0.1/notr_linux_amd64
+wget https://github.com/ICKelin/opennotr/releases/download/v0.0.1/notr.toml
+```
 
+修改notr.toml配置文件
 
-运行成功之后，客户端对应的http，https，grpc服务监听的ip是`0.0.0.0`，不能是`127.0.0.1`
+```
+# notrd的公网地址及监听端口
+serverAddr="47.115.82.137:10100"
+# 步骤一当中配置的key
+key="client server exchange key"
+# 需要穿透的内网http端口
+http=8080
+# 需要穿透的内网https端口
+https=4443
+# 需要穿透的内网grpc端口
+grpc=8800
+# 需要使用的域名，如果没有域名，可配置为serverAddr。
+# 如果使用域名，需要在域名供应商配置域名解析记录，解析到serverAddr
+# 如果使用coredns，需要在域名供应商配置ns记录，ns记录指向coredns所在的机器的ip。
+domain="47.115.82.137"
+```
 
-## opennotr工作原理
+配置完成之后，启动notr客户端，然后启动您的内网服务，**监听的ip需要是0.0.0.0**
 
-opennotr构建在一个vpn基础上，所有client都和server组成了一个虚拟局域网，每个客户端会被分配一个局域网ip，在server端通过客户端的虚拟局域网ip访问客户端。
+```
+./notr -conf notr.toml
+```
 
-基于此基础，在server端利用nginx的反向代理能力，代理地址为客户端的虚拟ip地址，底层的vpn功能针对nginx而言是透明的，对nginx不可见。
+## 更多
+如果您觉得自己搭建太麻烦，可以使用我们的[收费版本内网穿透](https://www.notr.tech)，扫描下方二维码关注之后，给公众号发送注册的用户名，待确认通过后即可免费获得30天内网穿透服务。
 
-为了适配ip地址的变更，同时也为了能够充分利用80和443端口，引入了coredns作为域名解析服务器，不仅为每个客户端分配一个虚拟局域网ip，也将虚拟局域网ip解析为域名，因此，无论底层客户端的虚拟局域网ip如何发生变化，使用域名访问同样是透明的，使用者并不需要关注底层虚拟局域网的概念。
+如果您对网络感兴趣，可以查看我的一些[文章列表](https://github.com/ICKelin/article)，或者关注我的个人公众号.
 
-## Thanks
-[songgao/water](https://github.com/songgao/water)
-
-如果您觉得这个项目不错，可以给star，如果有更好的意见和建议，或者希望对源码进行改造，可以与我取得联系。
+![ICKelin](qrcode.jpg)
