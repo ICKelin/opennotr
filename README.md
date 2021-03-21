@@ -6,6 +6,12 @@ opennotr旨在提供一个简单易用的内网穿透功能，让使用者能够
 
 [![](http://img.youtube.com/vi/0FA2mAqDS9U/0.jpg)](http://www.youtube.com/watch?v=0FA2mAqDS9U "")
 
+其他视频教程:
+
+- [opennotr基本用法](https://www.zhihu.com/zvideo/1348958178885963776)
+- [opennotr进阶-使用域名](https://www.zhihu.com/zvideo/1357007720181293056)
+
+
 ### opennotr是什么
 opennotr是一个内网穿透项目，在[gtun](https://github.com/ICKelin/gtun)的基础之上改造而成，也是收费软件[Notr](https://www.notr.tech)的开源版本。
 
