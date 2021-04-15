@@ -17,7 +17,7 @@ import (
 	"github.com/ICKelin/opennotr/notrd/config"
 	"github.com/ICKelin/opennotr/notrd/gateway"
 	"github.com/ICKelin/opennotr/notrd/proxy"
-	"github.com/ICKelin/opennotr/proto"
+	"github.com/ICKelin/opennotr/pkg/proto"
 )
 
 type Server struct {
@@ -132,7 +132,7 @@ func (s *Server) onConn(conn net.Conn) {
 	}
 
 	s.p.Add(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
-	defer s.p.Del(auth.Domain, vip)
+	defer s.p.Del(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
 
 	log.Println("select vip:", vip)
 	log.Println("select domain:", auth.Domain)
