@@ -1,4 +1,4 @@
-package gateway
+package server
 
 import (
 	"fmt"
@@ -6,42 +6,43 @@ import (
 	"sync"
 )
 
-type Gateway struct {
-	rw    sync.RWMutex
-	cidr  string
-	free  map[string]struct{}
-	inuse map[string]struct{}
+type DHCP struct {
+	rw      sync.Mutex
+	cidr    string
+	localIP string
+	free    map[string]struct{}
+	inuse   map[string]struct{}
 }
 
-func New(cidr string) *Gateway {
-	begin, end, err := parseCIDR(cidr)
+func NewDHCP(cidr string) (*DHCP, error) {
+	begin, end, err := getIPRange(cidr)
 	if err != nil {
-		// 初始化未成功，panic down掉进程
-		panic(err)
+		return nil, err
 	}
 
 	free := make(map[string]struct{})
-	for i := begin; i < end; i++ {
+	inused := make(map[string]struct{})
+	for i := begin + 1; i < end; i++ {
 		free[toIP(i)] = struct{}{}
 	}
 
-	return &Gateway{
-		free:  free,
-		inuse: make(map[string]struct{}),
-		cidr:  cidr,
-	}
+	return &DHCP{
+		free:    free,
+		inuse:   inused,
+		cidr:    cidr,
+		localIP: toIP(begin),
+	}, nil
 }
 
-func (g *Gateway) GetAddr() string {
+func (g *DHCP) GetCIDR() string {
 	return g.cidr
 }
 
-// 为客户端选择ip
-func (g *Gateway) SelectIP() (string, error) {
+func (g *DHCP) SelectIP() (string, error) {
 	g.rw.Lock()
 	defer g.rw.Unlock()
 
-	for ip, _ := range g.free {
+	for ip := range g.free {
 		delete(g.free, ip)
 		g.inuse[ip] = struct{}{}
 		return ip, nil
@@ -50,8 +51,7 @@ func (g *Gateway) SelectIP() (string, error) {
 	return "", fmt.Errorf("no available ip")
 }
 
-// 释放客户端ip
-func (g *Gateway) ReleaseIP(ip string) {
+func (g *DHCP) ReleaseIP(ip string) {
 	g.rw.Lock()
 	defer g.rw.Unlock()
 
@@ -59,9 +59,7 @@ func (g *Gateway) ReleaseIP(ip string) {
 	delete(g.inuse, ip)
 }
 
-// 解析CIDR
-// 解析成功，返回开始地址，结束地址
-func parseCIDR(cidr string) (int32, int32, error) {
+func getIPRange(cidr string) (int32, int32, error) {
 	ip, mask, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return -1, -1, err
@@ -76,7 +74,7 @@ func parseCIDR(cidr string) (int32, int32, error) {
 	begin := (int32(ipv4[0]) << 24) + (int32(ipv4[1]) << 16) + (int32(ipv4[2]) << 8) + int32(ipv4[3])
 	end := begin | (1<<(32-one) - 1)
 
-	return begin + 1, end, nil
+	return begin, end, nil
 }
 
 // int32 ip地址转换为string

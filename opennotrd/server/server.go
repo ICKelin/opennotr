@@ -15,7 +15,6 @@ import (
 
 	"github.com/ICKelin/opennotr/device"
 	"github.com/ICKelin/opennotr/opennotrd/config"
-	"github.com/ICKelin/opennotr/opennotrd/gateway"
 	"github.com/ICKelin/opennotr/pkg/proto"
 )
 
@@ -25,9 +24,8 @@ type Server struct {
 	domain   string
 	publicIP string
 
-	// gateway模块
-	// 用户ip地址分配
-	gw *gateway.Gateway
+	// dhcp manager select/release ip for client
+	dhcp *DHCP
 
 	// call resty-upstream for dynamic upstream
 	upstreamMgr *UpstreamManager
@@ -45,7 +43,7 @@ type Server struct {
 }
 
 func New(cfg config.ServerConfig,
-	gw *gateway.Gateway,
+	dhcp *DHCP,
 	upstreamMgr *UpstreamManager,
 	dev *device.Device,
 	resolver *Resolver) *Server {
@@ -54,7 +52,7 @@ func New(cfg config.ServerConfig,
 		authKey:     cfg.AuthKey,
 		domain:      cfg.Domain,
 		publicIP:    publicIP(),
-		gw:          gw,
+		dhcp:        dhcp,
 		upstreamMgr: upstreamMgr,
 		dev:         dev,
 		resolver:    resolver,
@@ -99,7 +97,7 @@ func (s *Server) onConn(conn net.Conn) {
 		auth.Domain = fmt.Sprintf("%s.%s", randomDomain(time.Now().Unix()), s.domain)
 	}
 
-	vip, err := s.gw.SelectIP()
+	vip, err := s.dhcp.SelectIP()
 	if err != nil {
 		log.Println(err)
 		return
@@ -107,7 +105,7 @@ func (s *Server) onConn(conn net.Conn) {
 
 	reply := &proto.S2CAuth{
 		Vip:     vip,
-		Gateway: s.gw.GetAddr(),
+		Gateway: s.dhcp.GetCIDR(),
 		Domain:  auth.Domain,
 	}
 

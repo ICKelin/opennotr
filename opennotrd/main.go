@@ -7,8 +7,8 @@ import (
 
 	"github.com/ICKelin/opennotr/device"
 	"github.com/ICKelin/opennotr/opennotrd/config"
-	"github.com/ICKelin/opennotr/opennotrd/gateway"
 	"github.com/ICKelin/opennotr/opennotrd/server"
+	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
 func main() {
@@ -41,8 +41,13 @@ func main() {
 		return
 	}
 
-	// 初始化网关
-	gw := gateway.New(cfg.GatewayConfig.Cidr)
+	// create dhcp manager
+	// dhcp Select/Release ip for opennotr client
+	dhcp, err := server.NewDHCP(cfg.GatewayConfig.Cidr)
+	if err != nil {
+		logs.Error("new dhcp module fail: %v", err)
+		return
+	}
 
 	// create upstream manager
 	// upstream manager send http POST/DELETE to create/delete upstream
@@ -59,6 +64,6 @@ func main() {
 		}
 	}
 	// 启动tcp server
-	s := server.New(cfg.ServerConfig, gw, p, dev, resolver)
+	s := server.New(cfg.ServerConfig, dhcp, p, dev, resolver)
 	fmt.Println(s.ListenAndServe())
 }
