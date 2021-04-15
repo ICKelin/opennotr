@@ -26,9 +26,7 @@ type GatewayConfig struct {
 }
 
 type ProxyConfig struct {
-	ConfigDir string `toml:"confDir"` // 配置文件路径
-	CertFile  string `toml:"cert"`    // ssl证书
-	KeyFile   string `toml:"key"`     // ssl秘钥
+	RemoteAddr string `toml:"remoteAddr"`
 }
 
 type ResolverConfig struct {

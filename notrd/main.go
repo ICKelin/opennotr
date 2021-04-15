@@ -46,7 +46,7 @@ func main() {
 	gw := gateway.New(cfg.GatewayConfig.Cidr)
 
 	// 初始化代理
-	p := proxy.New(cfg.ProxyConfig.ConfigDir, cfg.ProxyConfig.CertFile, cfg.ProxyConfig.KeyFile)
+	p := proxy.New(cfg.ProxyConfig.RemoteAddr)
 
 	// 初始化域名解析配置
 	var resolver *server.Resolver

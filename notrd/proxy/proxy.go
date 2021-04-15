@@ -1,143 +1,118 @@
 package proxy
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
-	"log"
-	"os"
-	"os/exec"
-)
-
-const (
-	// http反向代理
-	PROXY_HTTP = iota
-
-	// https反向代理
-	PROXY_HTTPS
-
-	// grpc反向代理
-	PROXY_GRPC
+	"io/ioutil"
+	"net/http"
+	"time"
 )
 
 type Proxy struct {
-	confpath string
-	cert     string
-	key      string
+	remoteAddr string
 }
 
-func New(confpath, cert, key string) *Proxy {
+type AddProxyBody struct {
+	Scheme string `json:"scheme"`
+	Host   string `json:"host"`
+	IP     string `json:"ip"`
+	Port   string `json:"port"`
+}
+
+func New(remoteAddr string) *Proxy {
 	return &Proxy{
-		confpath: confpath,
-		cert:     cert,
-		key:      key,
+		remoteAddr: remoteAddr,
 	}
 }
 
-// 添加代理
-// 添加nginx配置文件
-// domain为nginx host字段匹配
-// to为客户端虚拟ip地址
-func (p *Proxy) Add(http, https, grpc int, domain, vhost string) {
-	template := ""
-	if http > 0 {
-		template += fmt.Sprintf(httpTemplate, domain, vhost, http)
+func (p *Proxy) Add(httpPort, httpsPort, grpcPort int, domain, vhost string) {
+	if httpPort != 0 {
+		addProxyBody := &AddProxyBody{
+			Scheme: "http",
+			Host:   domain,
+			IP:     vhost,
+			Port:   fmt.Sprintf("%d", httpPort),
+		}
+
+		p.sendReq(addProxyBody)
 	}
 
-	if https > 0 {
-		template += fmt.Sprintf(httpsTemplate, domain, p.cert, p.key, vhost, https)
+	if httpsPort != 0 {
+		addProxyBody := &AddProxyBody{
+			Scheme: "https",
+			Host:   domain,
+			IP:     vhost,
+			Port:   fmt.Sprintf("%d", httpsPort),
+		}
+
+		p.sendReq(addProxyBody)
 	}
 
-	if grpc > 0 {
-		template += fmt.Sprintf(grpcTemplate, domain, vhost, grpc)
-	}
+	if grpcPort != 0 {
+		addProxyBody := &AddProxyBody{
+			Scheme: "http2",
+			Host:   domain,
+			IP:     vhost,
+			Port:   fmt.Sprintf("%d", grpcPort),
+		}
 
-	path := fmt.Sprintf("%s/%s_%s.conf", p.confpath, domain, vhost)
-
-	if len(template) > 0 {
-		p.writeNginxConf(path, template)
+		p.sendReq(addProxyBody)
 	}
 }
 
-// 移除代理
-// 删除nginx配置文件
 func (p *Proxy) Del(domain, vhost string) {
-	path := fmt.Sprintf("%s/%s_%s.conf", p.confpath, domain, vhost)
-	p.deleteNginxConf(path)
-}
-
-func (p *Proxy) writeNginxConf(path string, content string) {
-	log.Println("[D] write path:", path)
-	log.Println("[D] write content:", content)
-	fp, err := os.Create(path)
-	if err != nil {
-		log.Printf("[E] create file %s fail: %v\n", path, err)
-		return
+	cli := http.Client{
+		Timeout: time.Second * 10,
 	}
-	defer fp.Close()
-
-	_, err = fp.Write([]byte(content))
+	url := fmt.Sprintf("%s?host=%s", domain)
+	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
-		log.Printf("[E] write config fail: %v\n", err)
+		fmt.Println(err)
 		return
 	}
 
-	err = exec.Command("nginx", []string{"-s", "reload"}...).Run()
+	resp, err := cli.Do(req)
 	if err != nil {
-		log.Printf("[E] reload nginx config fail: %v\n", err)
+		fmt.Println(err)
 		return
 	}
-}
+	defer resp.Body.Close()
 
-func (p *Proxy) deleteNginxConf(path string) {
-	log.Printf("removing nginx config file:%s\n", path)
-	err := os.Remove(path)
-	log.Println("[E] remove file fail: ", err)
-}
-
-var grpcTemplate = `
-server {
-	listen 880 http2;
-	server_name grpc.%s;
-	location / {
-		proxy_redirect off;
-		proxy_set_header Host $host;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-		grpc_pass grpc://%s:%d;
+	cnt, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
-}
-`
 
-var httpTemplate = `
-server {
-	listen 80;
-	server_name %s;
-	location / {
-		proxy_redirect off;
-		proxy_set_header Host $host;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-		proxy_pass http://%s:%d;
+	fmt.Printf("reply from resty: %s\n", string(cnt))
+}
+
+func (p *Proxy) sendReq(body interface{}) {
+	cli := http.Client{
+		Timeout: time.Second * 10,
 	}
-}
 
-`
+	buf, _ := json.Marshal(body)
+	br := bytes.NewBuffer(buf)
 
-var httpsTemplate = `
-server {
-	listen 443;
-
-	server_name %s;
-	ssl on;
-	ssl_certificate %s;
-	ssl_certificate_key %s;
-
-	location / {
-		proxy_redirect off;
-		proxy_set_header Host $host;
-		proxy_set_header X-Real-IP $remote_addr;
-		proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-		proxy_pass https://%s:%d;
+	req, err := http.NewRequest("POST", p.remoteAddr, br)
+	if err != nil {
+		fmt.Println(err)
+		return
 	}
-}
 
-`
+	resp, err := cli.Do(req)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	defer resp.Body.Close()
+
+	cnt, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	fmt.Printf("reply from resty: %s\n", string(cnt))
+}
