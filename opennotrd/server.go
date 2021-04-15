@@ -1,22 +1,40 @@
-package server
+package main
 
 import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/ICKelin/opennotr/device"
-	"github.com/ICKelin/opennotr/opennotrd/config"
+	"github.com/ICKelin/opennotr/pkg/device"
+	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
 )
+
+type Session struct {
+	conn       net.Conn
+	clientAddr string
+	activePing int32
+	hbbuf      chan struct{}
+	writebuf   chan []byte
+	readbuf    chan []byte
+}
+
+func newSession(conn net.Conn, clientAddr string) *Session {
+	return &Session{
+		conn:       conn,
+		clientAddr: clientAddr,
+		activePing: 0,
+		hbbuf:      make(chan struct{}),
+		writebuf:   make(chan []byte),
+		readbuf:    make(chan []byte),
+	}
+}
 
 type Server struct {
 	addr     string
@@ -30,19 +48,18 @@ type Server struct {
 	// call resty-upstream for dynamic upstream
 	upstreamMgr *UpstreamManager
 
-	// dev模块
-	// 读写网卡设备
+	// tun device wraper
 	dev *device.Device
 
-	// 域名解析模块
-	// 设置域名解析记录
+	// resolver sets the etcd values for domain
+	// coredns will use the dynamic domain
 	resolver *Resolver
 
-	// 所有客户端会话
+	// sess store client connect wraper
 	sess sync.Map
 }
 
-func New(cfg config.ServerConfig,
+func NewServer(cfg ServerConfig,
 	dhcp *DHCP,
 	upstreamMgr *UpstreamManager,
 	dev *device.Device,
@@ -84,12 +101,12 @@ func (s *Server) onConn(conn net.Conn) {
 	auth := proto.C2SAuth{}
 	err := proto.ReadJSON(conn, &auth)
 	if err != nil {
-		log.Println("bad request, authorize fail: ", err)
+		logs.Error("bad request, authorize fail: %v", err)
 		return
 	}
 
 	if auth.Key != s.authKey {
-		log.Println("verify key fail")
+		logs.Error("verify key fail")
 		return
 	}
 
@@ -99,7 +116,7 @@ func (s *Server) onConn(conn net.Conn) {
 
 	vip, err := s.dhcp.SelectIP()
 	if err != nil {
-		log.Println(err)
+		logs.Error("dhcp select ip fail: %v", err)
 		return
 	}
 
@@ -111,17 +128,14 @@ func (s *Server) onConn(conn net.Conn) {
 
 	err = proto.WriteJSON(conn, proto.CmdAuth, reply)
 	if err != nil {
-		log.Println(err)
+		logs.Error("write json fail: %v", err)
 		return
 	}
 
-	// 如果使用内网模式，域名解析为vip，需要启动客户端才能访问，安全性较好
-	// 如果使用公网模式，域名解析为public_ip公网地址，通过公网服务器即可访问，安全性较差
-	// 目前只支持公网模式
 	if s.resolver != nil {
 		err = s.resolver.ApplyDomain(auth.Domain, publicIP())
 		if err != nil {
-			log.Printf("resolve domain fail: %v\n", err)
+			logs.Error("resolve domain fail: %v", err)
 			return
 		}
 	}
@@ -129,8 +143,8 @@ func (s *Server) onConn(conn net.Conn) {
 	s.upstreamMgr.AddUpstream(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
 	defer s.upstreamMgr.DelUpstream(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
 
-	log.Println("select vip:", vip)
-	log.Println("select domain:", auth.Domain)
+	logs.Info("select vip: %s", vip)
+	logs.Info("select domain: %s", auth.Domain)
 
 	// tunnel
 	sess := newSession(conn, conn.RemoteAddr().String())
@@ -142,12 +156,14 @@ func (s *Server) onConn(conn net.Conn) {
 	defer cancel()
 
 	finread := make(chan struct{})
+
 	go s.reader(ctx, sess, finread)
 	go s.writer(ctx, sess)
 	s.heartbeat(ctx, sess, finread)
 }
 
-// 读客户端
+// reader reads from session
+// once error occurs, close finread channel to stop heartbeat
 func (s *Server) reader(ctx context.Context, sess *Session, finread chan struct{}) {
 	defer close(finread)
 
@@ -158,12 +174,11 @@ func (s *Server) reader(ctx context.Context, sess *Session, finread chan struct{
 		default:
 		}
 
-		// 解码
 		sess.conn.SetReadDeadline(time.Now().Add(time.Second * 30))
 		hdr, body, err := proto.Read(sess.conn)
 		sess.conn.SetReadDeadline(time.Time{})
 		if err != nil {
-			log.Println(err)
+			logs.Error("read fail: %v", err)
 			break
 		}
 
@@ -175,12 +190,12 @@ func (s *Server) reader(ctx context.Context, sess *Session, finread chan struct{
 			s.dev.Write(body)
 
 		default:
-			log.Println("unsupported cmd: ", hdr.Cmd(), body)
+			logs.Error("unsupported cmd: %d %v", hdr.Cmd(), body)
 		}
 	}
 }
 
-// 写客户端
+// writer writes data,heartbeat to session
 func (s *Server) writer(ctx context.Context, sess *Session) {
 	for {
 		select {
@@ -200,7 +215,7 @@ func (s *Server) writer(ctx context.Context, sess *Session) {
 	}
 }
 
-// 心跳保活
+// heartbeat sends heartbeat packet to client and incr activePing by one
 func (s *Server) heartbeat(ctx context.Context, sess *Session, finread chan struct{}) {
 	tick := time.NewTicker(time.Second * 10)
 	defer tick.Stop()
@@ -213,7 +228,7 @@ func (s *Server) heartbeat(ctx context.Context, sess *Session, finread chan stru
 		}
 
 		if atomic.LoadInt32(&sess.activePing) >= 3 {
-			log.Println("server ping timeout")
+			logs.Error("server ping timeout")
 			break
 		}
 
@@ -222,29 +237,27 @@ func (s *Server) heartbeat(ctx context.Context, sess *Session, finread chan stru
 	}
 }
 
-// 读取设备数据
+// readIface
 func (s *Server) readIface() {
 	for {
 		pkt, err := s.dev.Read()
 		if err != nil {
-			log.Println(err)
-			// server的设备网卡有问题，直接退出重新拉起
-			// 避免程序进入隧道联通，但是隧道不通的场景
-			os.Exit(0)
+			logs.Error("read device fail: %v", err)
+			break
 		}
 
 		v4Pkt := Packet(pkt)
 
-		// 路由转发只支持ipv4
 		if v4Pkt.Version() != 4 {
+			logs.Warn("not support ip version %d", v4Pkt.Version())
 			continue
 		}
 
-		log.Printf("[D] src %s dst %s\n", v4Pkt.Src(), v4Pkt.Dst())
+		logs.Debug("src %s dst %s", v4Pkt.Src(), v4Pkt.Dst())
 
 		obj, ok := s.sess.Load(v4Pkt.Dst())
 		if !ok {
-			log.Printf("vip %s not found\n", v4Pkt.Dst())
+			logs.Warn("vip %s not found %v", v4Pkt.Dst())
 			continue
 		}
 
@@ -255,7 +268,7 @@ func (s *Server) readIface() {
 	}
 }
 
-// 生产随机域名
+// randomDomain generate random domain for client
 func randomDomain(num int64) string {
 	const ALPHABET = "123456789abcdefghijklmnopqrstuvwxyz"
 	const BASE = int64(len(ALPHABET))
@@ -268,21 +281,18 @@ func randomDomain(num int64) string {
 	return rs
 }
 
-// 获取公网ip
-// 获取不到，程序启动失败
+// get public
 func publicIP() string {
 	resp, err := http.Get("http://ipv4.icanhazip.com")
 	if err != nil {
-		log.Println(err)
-		os.Exit(0)
-		return ""
+		logs.Error("get public ip fail: %v", err)
+		panic(err)
 	}
 
 	defer resp.Body.Close()
 	content, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		os.Exit(0)
-		return ""
+		panic(err)
 	}
 
 	str := string(content)

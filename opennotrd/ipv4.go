@@ -1,21 +1,8 @@
-package server
+package main
 
 import "fmt"
 
-type Frame []byte
 type Packet []byte
-
-func (f Frame) Invalid() bool {
-	return len(f) < 14
-}
-
-func (f Frame) IsIPV4() bool {
-	if f.Invalid() {
-		return false
-	}
-	proto := int(f[12])<<8 + int(f[13])
-	return proto == 0x0800
-}
 
 func (p Packet) Invalid() bool {
 	return len(p) < 20

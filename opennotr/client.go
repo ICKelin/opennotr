@@ -6,8 +6,8 @@ import (
 	"net"
 	"time"
 
-	"github.com/ICKelin/opennotr/device"
-	"github.com/ICKelin/opennotr/proto"
+	"github.com/ICKelin/opennotr/pkg/device"
+	"github.com/ICKelin/opennotr/pkg/proto"
 )
 
 type writeReq struct {

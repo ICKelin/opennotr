@@ -4,16 +4,16 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/pelletier/go-toml"
+	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	ServerAddr string `toml:"serverAddr"`
-	Key        string `toml:"key"`
-	Domain     string `toml:"domain"`
-	HTTP       int    `toml:"http"`
-	HTTPS      int    `toml:"https"`
-	Grpc       int    `toml:"grpc"`
+	ServerAddr string `yaml:"serverAddr"`
+	Key        string `yaml:"key"`
+	Domain     string `yaml:"domain"`
+	HTTP       int    `yaml:"http"`
+	HTTPS      int    `yaml:"https"`
+	Grpc       int    `yaml:"grpc"`
 }
 
 func ParseConfig(path string) (*Config, error) {
@@ -23,7 +23,7 @@ func ParseConfig(path string) (*Config, error) {
 	}
 
 	var cfg Config
-	err = toml.Unmarshal(cnt, &cfg)
+	err = yaml.Unmarshal(cnt, &cfg)
 	return &cfg, err
 }
 

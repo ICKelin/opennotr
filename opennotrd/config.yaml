@@ -1,0 +1,12 @@
+server:
+  listen: ":10100"
+  authKey: "client server exchange key"
+  domain: "open.notr.tech"
+
+dhcp:
+  cidr: "100.64.242.1/24"
+  ip: "100.64.242.1"
+
+upstream:
+  remoteAddr: "http://127.0.0.1:81/upstreams"
+  
