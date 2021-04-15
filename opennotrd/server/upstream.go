@@ -1,4 +1,4 @@
-package proxy
+package server
 
 import (
 	"bytes"
@@ -11,29 +11,30 @@ import (
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
-type Proxy struct {
+type UpstreamManager struct {
 	remoteAddr string
 }
 
-type AddProxyBody struct {
+type AddUpstreamBody struct {
 	Scheme string `json:"scheme"`
 	Host   string `json:"host"`
 	IP     string `json:"ip"`
 	Port   string `json:"port"`
 }
 
-func New(remoteAddr string) *Proxy {
-	return &Proxy{
+func NewUpstreamManager(remoteAddr string) *UpstreamManager {
+	return &UpstreamManager{
 		remoteAddr: remoteAddr,
 	}
 }
 
-func (p *Proxy) Add(httpPort, httpsPort, grpcPort int, domain, vip string) {
+// Create upstream for $host, backend $vip
+func (p *UpstreamManager) AddUpstream(httpPort, httpsPort, grpcPort int, host, vip string) {
 	if httpPort != 0 {
-		addProxyBody := &AddProxyBody{
+		addProxyBody := &AddUpstreamBody{
 			Scheme: "http",
-			Host:   domain,
-			IP:     vhost,
+			Host:   host,
+			IP:     vip,
 			Port:   fmt.Sprintf("%d", httpPort),
 		}
 
@@ -41,10 +42,10 @@ func (p *Proxy) Add(httpPort, httpsPort, grpcPort int, domain, vip string) {
 	}
 
 	if httpsPort != 0 {
-		addProxyBody := &AddProxyBody{
+		addProxyBody := &AddUpstreamBody{
 			Scheme: "https",
-			Host:   domain,
-			IP:     vhost,
+			Host:   host,
+			IP:     vip,
 			Port:   fmt.Sprintf("%d", httpsPort),
 		}
 
@@ -52,10 +53,10 @@ func (p *Proxy) Add(httpPort, httpsPort, grpcPort int, domain, vip string) {
 	}
 
 	if grpcPort != 0 {
-		addProxyBody := &AddProxyBody{
+		addProxyBody := &AddUpstreamBody{
 			Scheme: "http2",
-			Host:   domain,
-			IP:     vhost,
+			Host:   host,
+			IP:     vip,
 			Port:   fmt.Sprintf("%d", grpcPort),
 		}
 
@@ -63,7 +64,7 @@ func (p *Proxy) Add(httpPort, httpsPort, grpcPort int, domain, vip string) {
 	}
 }
 
-func (p *Proxy) Del(host string, httpPort, httpsPort, grpcPort int) {
+func (p *UpstreamManager) DelUpstream(host string, httpPort, httpsPort, grpcPort int) {
 	if httpPort != 0 {
 		p.sendDeleteReq(host, "http")
 	}
@@ -77,7 +78,7 @@ func (p *Proxy) Del(host string, httpPort, httpsPort, grpcPort int) {
 	}
 }
 
-func (p *Proxy) sendPostReq(body interface{}) {
+func (p *UpstreamManager) sendPostReq(body interface{}) {
 	cli := http.Client{
 		Timeout: time.Second * 10,
 	}
@@ -106,7 +107,7 @@ func (p *Proxy) sendPostReq(body interface{}) {
 	logs.Info("reply from resty: %s", string(cnt))
 }
 
-func (p *Proxy) sendDeleteReq(host, scheme string) {
+func (p *UpstreamManager) sendDeleteReq(host, scheme string) {
 	cli := http.Client{
 		Timeout: time.Second * 10,
 	}

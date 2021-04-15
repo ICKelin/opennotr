@@ -6,10 +6,9 @@ import (
 	"log"
 
 	"github.com/ICKelin/opennotr/device"
-	"github.com/ICKelin/opennotr/notrd/config"
-	"github.com/ICKelin/opennotr/notrd/gateway"
-	"github.com/ICKelin/opennotr/notrd/proxy"
-	"github.com/ICKelin/opennotr/notrd/server"
+	"github.com/ICKelin/opennotr/opennotrd/config"
+	"github.com/ICKelin/opennotr/opennotrd/gateway"
+	"github.com/ICKelin/opennotr/opennotrd/server"
 )
 
 func main() {
@@ -45,8 +44,10 @@ func main() {
 	// 初始化网关
 	gw := gateway.New(cfg.GatewayConfig.Cidr)
 
-	// 初始化代理
-	p := proxy.New(cfg.ProxyConfig.RemoteAddr)
+	// create upstream manager
+	// upstream manager send http POST/DELETE to create/delete upstream
+	// the api server is based on openresty
+	p := server.NewUpstreamManager(cfg.ProxyConfig.RemoteAddr)
 
 	// 初始化域名解析配置
 	var resolver *server.Resolver

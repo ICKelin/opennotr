@@ -14,9 +14,8 @@ import (
 	"time"
 
 	"github.com/ICKelin/opennotr/device"
-	"github.com/ICKelin/opennotr/notrd/config"
-	"github.com/ICKelin/opennotr/notrd/gateway"
-	"github.com/ICKelin/opennotr/notrd/proxy"
+	"github.com/ICKelin/opennotr/opennotrd/config"
+	"github.com/ICKelin/opennotr/opennotrd/gateway"
 	"github.com/ICKelin/opennotr/pkg/proto"
 )
 
@@ -30,9 +29,8 @@ type Server struct {
 	// 用户ip地址分配
 	gw *gateway.Gateway
 
-	// proxy模块
-	// 用户管理客户端代理
-	p *proxy.Proxy
+	// call resty-upstream for dynamic upstream
+	upstreamMgr *UpstreamManager
 
 	// dev模块
 	// 读写网卡设备
@@ -48,18 +46,18 @@ type Server struct {
 
 func New(cfg config.ServerConfig,
 	gw *gateway.Gateway,
-	p *proxy.Proxy,
+	upstreamMgr *UpstreamManager,
 	dev *device.Device,
 	resolver *Resolver) *Server {
 	return &Server{
-		addr:     cfg.ListenAddr,
-		authKey:  cfg.AuthKey,
-		domain:   cfg.Domain,
-		publicIP: publicIP(),
-		gw:       gw,
-		p:        p,
-		dev:      dev,
-		resolver: resolver,
+		addr:        cfg.ListenAddr,
+		authKey:     cfg.AuthKey,
+		domain:      cfg.Domain,
+		publicIP:    publicIP(),
+		gw:          gw,
+		upstreamMgr: upstreamMgr,
+		dev:         dev,
+		resolver:    resolver,
 	}
 }
 
@@ -101,7 +99,6 @@ func (s *Server) onConn(conn net.Conn) {
 		auth.Domain = fmt.Sprintf("%s.%s", randomDomain(time.Now().Unix()), s.domain)
 	}
 
-	// proxy
 	vip, err := s.gw.SelectIP()
 	if err != nil {
 		log.Println(err)
@@ -131,8 +128,8 @@ func (s *Server) onConn(conn net.Conn) {
 		}
 	}
 
-	s.p.Add(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
-	defer s.p.Del(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
+	s.upstreamMgr.AddUpstream(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
+	defer s.upstreamMgr.DelUpstream(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
 
 	log.Println("select vip:", vip)
 	log.Println("select domain:", auth.Domain)
