@@ -54,7 +54,7 @@ func (p *UpstreamManager) AddUpstream(httpPort, httpsPort, grpcPort int, host, v
 
 	if grpcPort != 0 {
 		addProxyBody := &AddUpstreamBody{
-			Scheme: "http2",
+			Scheme: "h2c",
 			Host:   host,
 			IP:     vip,
 			Port:   fmt.Sprintf("%d", grpcPort),
