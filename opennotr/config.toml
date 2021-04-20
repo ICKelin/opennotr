@@ -1,6 +1,6 @@
 serverAddr="demo.notr.tech:10100"
 key="client server exchange key"
 http=8080
-https=4443
-grpc=8800
-domain="47.115.82.137"
+https=8080
+grpc=50052
+domain="cloud.dahuizong.com"
