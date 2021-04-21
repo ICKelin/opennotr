@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	ServerAddr string `yaml:"serverAddr"`
-	Key        string `yaml:"key"`
-	Domain     string `yaml:"domain"`
-	HTTP       int    `yaml:"http"`
-	HTTPS      int    `yaml:"https"`
-	Grpc       int    `yaml:"grpc"`
+	ServerAddr string      `yaml:"serverAddr"`
+	Key        string      `yaml:"key"`
+	Domain     string      `yaml:"domain"`
+	HTTP       int         `yaml:"http"`
+	HTTPS      int         `yaml:"https"`
+	Grpc       int         `yaml:"grpc"`
+	TCPs       map[int]int `yaml:"tcp"`
 }
 
 func ParseConfig(path string) (*Config, error) {

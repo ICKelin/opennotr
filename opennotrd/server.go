@@ -46,7 +46,12 @@ type Server struct {
 	dhcp *DHCP
 
 	// call resty-upstream for dynamic upstream
+	// for http, https, grpc, websocket, we use openresty dynamic upstream
+	// https://github.com/ICKelin/resty-upstream
 	upstreamMgr *UpstreamManager
+
+	// call tcp proxy for add/del tcp proxy
+	tcpProxy *TCPProxy
 
 	// tun device wraper
 	dev *device.Device
@@ -71,6 +76,7 @@ func NewServer(cfg ServerConfig,
 		publicIP:    publicIP(),
 		dhcp:        dhcp,
 		upstreamMgr: upstreamMgr,
+		tcpProxy:    NewTCPProxy(),
 		dev:         dev,
 		resolver:    resolver,
 	}
@@ -117,6 +123,7 @@ func (s *Server) onConn(conn net.Conn) {
 	vip, err := s.dhcp.SelectIP()
 	if err != nil {
 		logs.Error("dhcp select ip fail: %v", err)
+		// todo return fail
 		return
 	}
 
@@ -140,8 +147,22 @@ func (s *Server) onConn(conn net.Conn) {
 		}
 	}
 
+	// dynamic upstream
 	s.upstreamMgr.AddUpstream(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
 	defer s.upstreamMgr.DelUpstream(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
+
+	// dynamic tcp proxy
+	if len(auth.TCPs) != 0 {
+		for inport, outport := range auth.TCPs {
+			from := fmt.Sprintf("0.0.0.0:%d", inport)
+			to := fmt.Sprintf("%s:%d", vip, outport)
+			logs.Info("tcp proxy: %s => %s", from, to)
+			err := s.tcpProxy.AddProxy(from, to)
+			if err != nil {
+				logs.Error("add proxy fail: %v", err)
+			}
+		}
+	}
 
 	logs.Info("select vip: %s", vip)
 	logs.Info("select domain: %s", auth.Domain)

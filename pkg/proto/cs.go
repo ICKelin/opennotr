@@ -19,11 +19,12 @@ type S2CHeartbeat struct {
 type C2SHeartbeat struct{}
 
 type C2SAuth struct {
-	Key    string `json:"key"`
-	Domain string `json:"domain"` // 域名，不传则由服务端随机生成
-	HTTP   int    `json:"http"`   // 本地http端口，为0则不指定
-	HTTPS  int    `json:"https"`  // http端口，为0则不指定
-	Grpc   int    `json:"grpc"`   // grpc端口，为0则不指定
+	Key    string      `json:"key"`
+	Domain string      `json:"domain"` // 域名，不传则由服务端随机生成
+	HTTP   int         `json:"http"`   // 本地http端口，为0则不指定
+	HTTPS  int         `json:"https"`  // http端口，为0则不指定
+	Grpc   int         `json:"grpc"`   // grpc端口，为0则不指定
+	TCPs   map[int]int `json:"tcps"`   // tcp端口
 }
 
 type S2CAuth struct {
