@@ -46,24 +46,25 @@ type Server struct {
 	dhcp *DHCP
 
 	// call resty-upstream for dynamic upstream
-	// for http, https, grpc, websocket, we use openresty dynamic upstream
-	// https://github.com/ICKelin/resty-upstream
+	// for http, https, grpc, websocket
+	// Ref: https://github.com/ICKelin/resty-upstream
 	upstreamMgr *UpstreamManager
 
-	// call tcp proxy for add/del tcp proxy
+	// call tcpproxy for dynamic add/del tcp proxy
 	tcpProxy *TCPProxy
 
-	// call udp proxy for add/del udp proxy
+	// call udpproxy for dynamic add/del udp proxy
 	udpProxy *UDPProxy
 
 	// tun device wraper
 	dev *device.Device
 
-	// resolver sets the etcd values for domain
-	// coredns will use the dynamic domain
+	// resolver writes domains to etcd and it will be used by coredns
 	resolver *Resolver
 
 	// sess store client connect wraper
+	// key: client virtual ip(vip)
+	// value: *Session
 	sess sync.Map
 }
 
@@ -127,7 +128,7 @@ func (s *Server) onConn(conn net.Conn) {
 	vip, err := s.dhcp.SelectIP()
 	if err != nil {
 		logs.Error("dhcp select ip fail: %v", err)
-		// todo return fail
+		// todo reply fail
 		return
 	}
 
@@ -135,6 +136,7 @@ func (s *Server) onConn(conn net.Conn) {
 		Vip:     vip,
 		Gateway: s.dhcp.GetCIDR(),
 		Domain:  auth.Domain,
+		// todo: add proxy item
 	}
 
 	err = proto.WriteJSON(conn, proto.CmdAuth, reply)
@@ -153,6 +155,9 @@ func (s *Server) onConn(conn net.Conn) {
 		}
 	}
 
+	logs.Info("select vip: %s", vip)
+	logs.Info("select domain: %s", auth.Domain)
+
 	// dynamic upstream
 	s.upstreamMgr.AddUpstream(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
 	defer s.upstreamMgr.DelUpstream(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
@@ -165,11 +170,11 @@ func (s *Server) onConn(conn net.Conn) {
 			logs.Info("add tcp proxy: %s => %s", from, to)
 			err := s.tcpProxy.AddProxy(from, to)
 			if err != nil {
-				logs.Error("add proxy fail: %v", err)
+				logs.Error("add tcp proxy fail: %v", err)
 			} else {
 				defer func() {
-					logs.Info("del tcp proxy: %s => %s", from, to)
 					s.tcpProxy.DelProxy(from)
+					logs.Info("del tcp proxy: %s => %s", from, to)
 				}()
 			}
 		}
@@ -183,18 +188,15 @@ func (s *Server) onConn(conn net.Conn) {
 			logs.Info("add udp proxy: %s => %s", from, to)
 			err := s.udpProxy.AddProxy(from, to)
 			if err != nil {
-				logs.Error("add proxy fail: %v", err)
+				logs.Error("add udp proxy fail: %v", err)
 			} else {
 				defer func() {
-					logs.Info("del udp proxy: %s => %s", from, to)
 					s.udpProxy.DelProxy(from)
+					logs.Info("del udp proxy: %s => %s", from, to)
 				}()
 			}
 		}
 	}
-
-	logs.Info("select vip: %s", vip)
-	logs.Info("select domain: %s", auth.Domain)
 
 	// tunnel
 	sess := newSession(conn, conn.RemoteAddr().String())

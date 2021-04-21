@@ -104,7 +104,7 @@ func (p *UpstreamManager) sendPostReq(body interface{}) {
 		logs.Error("request %v fail: %v", body, err)
 		return
 	}
-	logs.Info("reply from resty: %s", string(cnt))
+	logs.Info("set upstream reply: %s", string(cnt))
 }
 
 func (p *UpstreamManager) sendDeleteReq(host, scheme string) {
@@ -131,5 +131,5 @@ func (p *UpstreamManager) sendDeleteReq(host, scheme string) {
 		return
 	}
 
-	logs.Info("reply from resty: %s", string(cnt))
+	logs.Info("delete upstream reply: %s", string(cnt))
 }
