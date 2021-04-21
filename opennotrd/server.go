@@ -139,6 +139,8 @@ func (s *Server) onConn(conn net.Conn) {
 		return
 	}
 
+	// dynamic dns, write domain=>ip map to etcd
+	// coredns will read records from etcd and reply to dns client
 	if s.resolver != nil {
 		err = s.resolver.ApplyDomain(auth.Domain, publicIP())
 		if err != nil {
@@ -156,10 +158,13 @@ func (s *Server) onConn(conn net.Conn) {
 		for inport, outport := range auth.TCPs {
 			from := fmt.Sprintf("0.0.0.0:%d", inport)
 			to := fmt.Sprintf("%s:%d", vip, outport)
-			logs.Info("tcp proxy: %s => %s", from, to)
+			logs.Info("add tcp proxy: %s => %s", from, to)
 			err := s.tcpProxy.AddProxy(from, to)
 			if err != nil {
 				logs.Error("add proxy fail: %v", err)
+			} else {
+				logs.Info("del tcp proxy: %s => %s", from, to)
+				defer s.tcpProxy.DelProxy(from)
 			}
 		}
 	}
@@ -273,8 +278,6 @@ func (s *Server) readIface() {
 			logs.Warn("not support ip version %d", v4Pkt.Version())
 			continue
 		}
-
-		logs.Debug("src %s dst %s", v4Pkt.Src(), v4Pkt.Dst())
 
 		obj, ok := s.sess.Load(v4Pkt.Dst())
 		if !ok {
