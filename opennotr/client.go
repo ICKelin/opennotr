@@ -23,6 +23,7 @@ type Client struct {
 	https  int
 	grpc   int
 	tcps   map[int]int
+	udps   map[int]int
 }
 
 func NewClient(cfg *Config) *Client {
@@ -34,6 +35,7 @@ func NewClient(cfg *Config) *Client {
 		https:  cfg.HTTPS,
 		grpc:   cfg.Grpc,
 		tcps:   cfg.TCPs,
+		udps:   cfg.UDPs,
 	}
 }
 
@@ -53,6 +55,7 @@ func (c *Client) Run() {
 			HTTPS:  c.https,
 			Grpc:   c.grpc,
 			TCPs:   c.tcps,
+			UDPs:   c.udps,
 		}
 
 		err = proto.WriteJSON(conn, proto.CmdAuth, c2sauth)

@@ -25,6 +25,7 @@ type C2SAuth struct {
 	HTTPS  int         `json:"https"`  // http端口，为0则不指定
 	Grpc   int         `json:"grpc"`   // grpc端口，为0则不指定
 	TCPs   map[int]int `json:"tcps"`   // tcp端口
+	UDPs   map[int]int `json:"udps"`   // udp端口
 }
 
 type S2CAuth struct {

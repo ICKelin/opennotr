@@ -53,6 +53,9 @@ type Server struct {
 	// call tcp proxy for add/del tcp proxy
 	tcpProxy *TCPProxy
 
+	// call udp proxy for add/del udp proxy
+	udpProxy *UDPProxy
+
 	// tun device wraper
 	dev *device.Device
 
@@ -77,6 +80,7 @@ func NewServer(cfg ServerConfig,
 		dhcp:        dhcp,
 		upstreamMgr: upstreamMgr,
 		tcpProxy:    NewTCPProxy(),
+		udpProxy:    NewUDPProxy(),
 		dev:         dev,
 		resolver:    resolver,
 	}
@@ -163,8 +167,28 @@ func (s *Server) onConn(conn net.Conn) {
 			if err != nil {
 				logs.Error("add proxy fail: %v", err)
 			} else {
-				logs.Info("del tcp proxy: %s => %s", from, to)
-				defer s.tcpProxy.DelProxy(from)
+				defer func() {
+					logs.Info("del tcp proxy: %s => %s", from, to)
+					s.tcpProxy.DelProxy(from)
+				}()
+			}
+		}
+	}
+
+	// dynamic udp proxy
+	if len(auth.UDPs) != 0 {
+		for inport, outport := range auth.UDPs {
+			from := fmt.Sprintf("0.0.0.0:%d", inport)
+			to := fmt.Sprintf("%s:%d", vip, outport)
+			logs.Info("add udp proxy: %s => %s", from, to)
+			err := s.udpProxy.AddProxy(from, to)
+			if err != nil {
+				logs.Error("add proxy fail: %v", err)
+			} else {
+				defer func() {
+					logs.Info("del udp proxy: %s => %s", from, to)
+					s.udpProxy.DelProxy(from)
+				}()
 			}
 		}
 	}

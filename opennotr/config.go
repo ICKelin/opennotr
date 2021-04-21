@@ -15,6 +15,7 @@ type Config struct {
 	HTTPS      int         `yaml:"https"`
 	Grpc       int         `yaml:"grpc"`
 	TCPs       map[int]int `yaml:"tcp"`
+	UDPs       map[int]int `yaml:"udp"`
 }
 
 func ParseConfig(path string) (*Config, error) {
