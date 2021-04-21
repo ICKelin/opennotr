@@ -17,9 +17,6 @@ type UDPProxyItem struct {
 type UDPProxy struct {
 	mu     sync.Mutex
 	routes map[string]*UDPProxyItem
-
-	// session store udp session info
-	session map[string]string
 }
 
 func NewUDPProxy() *UDPProxy {
@@ -41,10 +38,7 @@ func (p *UDPProxy) AddProxy(from, to string) error {
 		recycleSignal: make(chan struct{}),
 	}
 
-	err := p.runProxy(item)
-	if err != nil {
-		return err
-	}
+	go p.runProxy(item)
 
 	p.routes[from] = item
 	return nil
@@ -78,10 +72,12 @@ func (p *UDPProxy) runProxy(item *UDPProxyItem) error {
 	if err != nil {
 		return err
 	}
-	var backendAddr *net.UDPAddr
-	var buf = make([]byte, 64*1024)
+	defer lis.Close()
 
-	sess := make(map[string]*net.UDPConn)
+	// del proxy will send recycle signal
+	// receive this signal and close the listener
+	// the listener close will force lis.ReadFromUDP loop break
+	// then close all the client socket and end udpCopy
 	go func() {
 		select {
 		case <-item.recycleSignal:
@@ -90,47 +86,58 @@ func (p *UDPProxy) runProxy(item *UDPProxyItem) error {
 		}
 	}()
 
-	go func() {
-		defer lis.Close()
-		for {
-			nr, raddr, err := lis.ReadFromUDP(buf)
+	// sess store all backend connection
+	// key: client address
+	// value: *net.UDPConn
+	// todo: optimize session timeout
+	sess := sync.Map{}
+
+	// close all backend sockets
+	// this action may end udpCopy
+	defer func() {
+		sess.Range(func(k, v interface{}) bool {
+			if conn, ok := v.(*net.UDPConn); ok {
+				conn.Close()
+			}
+			return true
+		})
+	}()
+
+	var buf = make([]byte, 64*1024)
+	for {
+		nr, raddr, err := lis.ReadFromUDP(buf)
+		if err != nil {
+			logs.Error("read from udp fail: %v", err)
+			break
+		}
+
+		key := raddr.String()
+		val, ok := sess.Load(key)
+
+		if !ok {
+			backendAddr, err := net.ResolveUDPAddr("udp", item.To)
 			if err != nil {
-				logs.Error("read from udp fail: %v", err)
+				logs.Error("resolve udp fail: %v", err)
 				break
 			}
 
-			key := raddr.String()
-			backendConn := sess[key]
-			if backendConn == nil {
-				p.mu.Lock()
-				item, ok := p.routes[from]
-				p.mu.Unlock()
-				if !ok {
-					break
-				}
-
-				backendAddr, err = net.ResolveUDPAddr("udp", item.To)
-				if err != nil {
-					logs.Error("resolve udp fail: %v", err)
-					break
-				}
-
-				logs.Info("create new udp connection to %s", item.To)
-				backendConn, err = net.DialUDP("udp", nil, backendAddr)
-				if err != nil {
-					logs.Error("dial udp fail: %v", err)
-					break
-				}
-				sess[key] = backendConn
-
-				// read from $to address and write to $from address
-				go p.udpCopy(backendConn, lis, raddr)
+			logs.Info("create new udp connection to %s", item.To)
+			backendConn, err := net.DialUDP("udp", nil, backendAddr)
+			if err != nil {
+				logs.Error("dial udp fail: %v", err)
+				break
 			}
-			logs.Info("write to backend %d bytes", nr)
-			// read from $from address and write to $to address
-			backendConn.Write(buf[:nr])
+			sess.Store(key, backendConn)
+
+			// read from $to address and write to $from address
+			go p.udpCopy(backendConn, lis, raddr)
 		}
-	}()
+
+		val, _ = sess.Load(key)
+		// read from $from address and write to $to address
+		val.(*net.UDPConn).Write(buf[:nr])
+		logs.Info("write to backend %d bytes", nr)
+	}
 	return nil
 }
 
