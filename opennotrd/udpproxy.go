@@ -150,6 +150,7 @@ func (p *UDPProxy) udpCopy(src, dst *net.UDPConn, toaddr *net.UDPAddr) {
 			logs.Error("read from udp fail: %v", err)
 			break
 		}
+
 		logs.Debug("write back to client %d bytes", nr)
 		_, err = dst.WriteToUDP(buf[:nr], toaddr)
 		if err != nil {

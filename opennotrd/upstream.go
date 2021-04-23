@@ -74,7 +74,7 @@ func (p *UpstreamManager) DelUpstream(host string, httpPort, httpsPort, grpcPort
 	}
 
 	if grpcPort != 0 {
-		p.sendDeleteReq(host, "http2")
+		p.sendDeleteReq(host, "h2c")
 	}
 }
 

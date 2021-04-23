@@ -1,0 +1,13 @@
+version: '3'
+services:     
+  opennotrd:
+    image: ickelin/opennotr:latest
+    network_mode: host
+    container_name: opennotrd
+    restart: always
+    privileged: true
+    volumes:
+      - /opt/logs/opennotr:/opt/resty-upstream/logs
+      - /opt/data/opennotrd:/opt/conf
+    environment:
+      TIME_ZONE: Asia/Shanghai
