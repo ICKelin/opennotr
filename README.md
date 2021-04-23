@@ -2,32 +2,71 @@
 [![Build Status](https://travis-ci.org/ICKelin/opennotr.svg?branch=master)](https://travis-ci.org/ICKelin/opennotr)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ICKelin/opennotr)](https://goreportcard.com/report/github.com/ICKelin/opennotr)
 
-opennotr is a nat tranversal application base on layer 3 tunnel and openresty.
+opennotr is a nat tranversal application base on a VPN tunnel and openresty.
 
-opennotr construct a layer3 VPN(we use tun device which is widly used by OpenVPN) and offer a LAN IPV4 address for each client.
+opennotr provides http, https, grpc, tcp and udp nat traversal. For http, https, grpc, opennotr supports multi client share the 80/443 ports, it maybe useful for wechat, facebook webhook debug.
 
-For gateway, we use openresty and set upstream via http API. And proxy the http, https. grcp(tcp/udp is on the way) traffic to the client LAN IPV4 address.
+The technical architecture of opennotr
 
+![opennotr.jpg](opennotr.jpg)
 
-## Install via docker
-configuration directory
+Table of Contents
+=================
+- [Features](#Features)
+- [Build](#build)
+- [Install](#Install)
+- [Technology details](#Technology-details)
+- [Author](#Author)
+
+Features
+=========
+opennotr provides these features:
+
+- Supports multi protocol, http, https, grpc, tcp, udp.
+- Multi client shares the same http, https, grpc port, for example: client A use `a.notr.tech` domain, client B use `b.notr.tech`, they can both use 80 port for http. Opennotr use openresty for dynamic upstream.
+- Dynamic dns support, opennotr use coredns and etcd for dynamic dns.
+
+Build
+=====
+
+**Build binary:**
+
+`./build_exec.sh`
+
+The binary file will created in bin folder.
+
+**Build docker image:**
+
+`./build_image.sh`
+
+This scripts will run `build_exec.sh` and build an image name `opennotr`
+
+Install
+=========
+
+**Install via docker-compose**
+
+1. create configuration file
+
+`mkdir /opt/data/opennotrd`
+
+An example of configuration folder tree is:
+
 ```
-/opt/data/opennotrd/
-|-- nginx-conf ----------> openresty configuration
-|   |-- cert ------------> https cert
-|   |   |-- upstream.crt
-|   |   `-- upstream.key
-|   |-- mime.types
-|   `-- nginx.conf 
-`-- notrd.yaml -----------> opennotrd application configuration
+root@iZwz97kfjnf78copv1ae65Z:/opt/data/opennotrd# tree
+.
+|-- cert ---------------------> cert folder
+|   |-- upstream.crt
+|   `-- upstream.key
+`-- notrd.yaml ---------------> opennotr config file
+
+2 directories, 5 files
 ```
 
-**configuration example**
-
-**notrd.yaml**
+the cert folder MUST be created and the crt and key file MUST created too.
 
 ```
-# cat /opt/data/opennotrd/notrd.yaml
+root@iZwz97kfjnf78copv1ae65Z:/opt/data/opennotrd# cat notrd.yaml
 server:
   listen: ":10100"
   authKey: "client server exchange key"
@@ -40,13 +79,28 @@ dhcp:
 upstream:
   remoteAddr: "http://127.0.0.1:81/upstreams"
 ```
-upstream.remoteAddr is the dynami upstram server base on [openresty](https://openresty.org)
 
-**nginx-config** 
+the only one configuration item you should change is `domain: "open.notr.tech"`, replace `open.notr.tech` with your own domain.
 
-nginx-config is openresty conf folder, here is an example [nginx.conf](https://github.com/ICKelin/resty-upstream/blob/master/conf/nginx.conf)
+2. Run with docker
 
-**install via docker**
+`docker run --privileged --net=host -v /opt/logs/opennotr:/opt/resty-upstream/logs -v /opt/data/opennotrd:/opt/conf -d opennotr`
+
+Or use docker-compose
+
+
 ```
-docker run --privileged --net=host -v /opt/logs/opennotr:/opt/resty-upstream/logs -v /opt/data/opennotrd:/opt/conf -d ickelin/opennotr:latest
+wget https://github.com/ICKelin/opennotr/blob/develop/docker-build/docker-compose.yaml
+
+docker-compose up -d opennotrd
 ```
+
+Technology details
+==================
+
+- [opennotr dynamic upstream implement]()
+- [opennotr vpn implement]()
+
+Author
+======
+A programer name ICKelin.
