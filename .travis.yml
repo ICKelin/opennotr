@@ -10,5 +10,5 @@ install:
 before_script:
 script:
     - cd $HOME/gopath/src/github.com/ICKelin/opennotr
-    - ./build.sh
+    - ./build_exec.sh
 
