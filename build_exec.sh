@@ -3,8 +3,7 @@ WORKSPACE=`pwd`
 BIN=$WORKSPACE/bin/
 EXEC_PREFIX=opennotrd
 
-cd $WORKSPACE/opennotr
-export GO111MODULE = on
+cd $WORKSPACE/opennotrd
 
 echo 'building client...'
 GOOS=darwin go build -o $BIN/$EXEC_PREFIX-client_darwin_amd64
