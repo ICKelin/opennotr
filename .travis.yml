@@ -3,7 +3,8 @@ go:
     - 1.13
 before_install:
 install:
-    - go get github.com/ICKelin/opennotr
+    - go get github.com/ICKelin/opennotr/opennotrd
+    - go get github.com/ICKelin/opennotr/opennotr
 before_script:
 script:
     - cd $HOME/gopath/src/github.com/ICKelin/opennotr

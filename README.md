@@ -46,8 +46,8 @@ opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实�
 
 针对tcp和udp，opennotr倒是没有使用openresty的功能，而是自己开发的代理程序，当前也是集成在opennotrd程序当中，具体可参考以下两个文件。
 
-- [tcpproxy.go]()
-- [udpproxy.go]()
+- [tcpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/tcpproxy.go)
+- [udpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/udpproxy.go)
 
 不使用openresty处理tcp和udp主要基于以下考虑：
 
