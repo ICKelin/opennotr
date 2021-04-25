@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net"
 	"sync"
 
@@ -25,7 +26,16 @@ func (p *UDPProxy) RunProxy(item *ProxyItem) error {
 		return err
 	}
 
-	fin := make(chan struct{})
+	go p.doProxy(lis, item)
+	return nil
+}
+
+func (p *UDPProxy) doProxy(lis *net.UDPConn, item *ProxyItem) {
+	defer lis.Close()
+
+	from := item.From
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	// receive this signal and close the listener
 	// the listener close will force lis.ReadFromUDP loop break
@@ -35,69 +45,63 @@ func (p *UDPProxy) RunProxy(item *ProxyItem) error {
 		case <-item.recycleSignal:
 			logs.Info("receive recycle signal for %s", from)
 			lis.Close()
-		case <-fin:
+		case <-ctx.Done():
 			return
 		}
 	}()
 
-	go func() {
-		defer lis.Close()
-		defer close(fin)
+	// sess store all backend connection
+	// key: client address
+	// value: *net.UDPConn
+	// todo: optimize session timeout
+	sess := sync.Map{}
 
-		// sess store all backend connection
-		// key: client address
-		// value: *net.UDPConn
-		// todo: optimize session timeout
-		sess := sync.Map{}
+	// close all backend sockets
+	// this action may end udpCopy
+	defer func() {
+		sess.Range(func(k, v interface{}) bool {
+			if conn, ok := v.(*net.UDPConn); ok {
+				conn.Close()
+			}
+			return true
+		})
+	}()
 
-		// close all backend sockets
-		// this action may end udpCopy
-		defer func() {
-			sess.Range(func(k, v interface{}) bool {
-				if conn, ok := v.(*net.UDPConn); ok {
-					conn.Close()
-				}
-				return true
-			})
-		}()
+	var buf = make([]byte, 64*1024)
+	for {
+		nr, raddr, err := lis.ReadFromUDP(buf)
+		if err != nil {
+			logs.Error("read from udp fail: %v", err)
+			break
+		}
 
-		var buf = make([]byte, 64*1024)
-		for {
-			nr, raddr, err := lis.ReadFromUDP(buf)
+		key := raddr.String()
+		val, ok := sess.Load(key)
+
+		if !ok {
+			backendAddr, err := net.ResolveUDPAddr("udp", item.To)
 			if err != nil {
-				logs.Error("read from udp fail: %v", err)
+				logs.Error("resolve udp fail: %v", err)
 				break
 			}
 
-			key := raddr.String()
-			val, ok := sess.Load(key)
-
-			if !ok {
-				backendAddr, err := net.ResolveUDPAddr("udp", item.To)
-				if err != nil {
-					logs.Error("resolve udp fail: %v", err)
-					break
-				}
-
-				logs.Debug("create new udp connection to %s", item.To)
-				backendConn, err := net.DialUDP("udp", nil, backendAddr)
-				if err != nil {
-					logs.Error("dial udp fail: %v", err)
-					break
-				}
-				sess.Store(key, backendConn)
-
-				// read from $to address and write to $from address
-				go p.udpCopy(lis, backendConn, raddr)
+			logs.Debug("create new udp connection to %s", item.To)
+			backendConn, err := net.DialUDP("udp", nil, backendAddr)
+			if err != nil {
+				logs.Error("dial udp fail: %v", err)
+				break
 			}
+			sess.Store(key, backendConn)
 
-			val, _ = sess.Load(key)
-			// read from $from address and write to $to address
-			val.(*net.UDPConn).Write(buf[:nr])
-			logs.Debug("write to backend %d bytes", nr)
+			// read from $to address and write to $from address
+			go p.udpCopy(lis, backendConn, raddr)
 		}
-	}()
-	return nil
+
+		val, _ = sess.Load(key)
+		// read from $from address and write to $to address
+		val.(*net.UDPConn).Write(buf[:nr])
+		logs.Debug("write to backend %d bytes", nr)
+	}
 }
 
 func (p *UDPProxy) udpCopy(dst, src *net.UDPConn, toaddr *net.UDPAddr) {
