@@ -1,52 +1,77 @@
 package main
 
 import (
-	"fmt"
+	"io"
+	"net"
 	"sync"
+	"time"
 
-	"github.com/inetaf/tcpproxy"
+	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
-type TCPProxyItem struct {
-	LocalPort  int
-	RemoteIP   string
-	RemotePort int
+func init() {
+	RegisterProxier("tcp", &TCPProxy{})
 }
 
-type TCPProxy struct {
-	mu     sync.Mutex
-	routes map[string]*tcpproxy.Proxy
-}
+type TCPProxy struct{}
 
-func NewTCPProxy() *TCPProxy {
-	return &TCPProxy{
-		routes: make(map[string]*tcpproxy.Proxy),
-	}
-}
-
-func (t *TCPProxy) AddProxy(from, to string) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	_, ok := t.routes[from]
-	if ok {
-		return fmt.Errorf("port %s is in used", from)
+func (t *TCPProxy) RunProxy(item *ProxyItem) error {
+	from, to := item.From, item.To
+	lis, err := net.Listen("tcp", from)
+	if err != nil {
+		return err
 	}
 
-	p := &tcpproxy.Proxy{}
-	t.routes[from] = p
+	fin := make(chan struct{})
+	go func() {
+		select {
+		case <-item.recycleSignal:
+			logs.Info("receive recycle signal for %s", from)
+			lis.Close()
+		case <-fin:
+			return
+		}
+	}()
 
-	target := tcpproxy.To(to)
-	p.AddRoute(from, target)
-	go p.Run()
+	go func() {
+		defer lis.Close()
+		defer close(fin)
+
+		for {
+			conn, err := lis.Accept()
+			if err != nil {
+				logs.Error("accept fail: %v", err)
+				break
+			}
+
+			go t.doProxy(conn, to)
+		}
+	}()
+
 	return nil
 }
 
-func (t *TCPProxy) DelProxy(from string) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	p := t.routes[from]
-	if p != nil {
-		p.Close()
-		delete(t.routes, from)
+func (t *TCPProxy) doProxy(conn net.Conn, to string) {
+	defer conn.Close()
+
+	toconn, err := net.DialTimeout("tcp", to, time.Second*10)
+	if err != nil {
+		logs.Error("dial fail: %v", err)
+		return
 	}
+	defer toconn.Close()
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		io.Copy(toconn, conn)
+	}()
+
+	go func() {
+		defer wg.Done()
+		io.Copy(conn, toconn)
+	}()
+	wg.Wait()
 }

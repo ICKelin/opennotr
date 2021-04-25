@@ -50,11 +50,8 @@ type Server struct {
 	// Ref: https://github.com/ICKelin/resty-upstream
 	upstreamMgr *UpstreamManager
 
-	// call tcpproxy for dynamic add/del tcp proxy
-	tcpProxy *TCPProxy
-
-	// call udpproxy for dynamic add/del udp proxy
-	udpProxy *UDPProxy
+	// call stream proxy for dynamic add/del tcp/udp proxy
+	streamProxy *Stream
 
 	// tun device wraper
 	dev *device.Device
@@ -80,8 +77,7 @@ func NewServer(cfg ServerConfig,
 		publicIP:    publicIP(),
 		dhcp:        dhcp,
 		upstreamMgr: upstreamMgr,
-		tcpProxy:    NewTCPProxy(),
-		udpProxy:    NewUDPProxy(),
+		streamProxy: DefaultStream(),
 		dev:         dev,
 		resolver:    resolver,
 	}
@@ -168,12 +164,12 @@ func (s *Server) onConn(conn net.Conn) {
 			from := fmt.Sprintf("0.0.0.0:%d", inport)
 			to := fmt.Sprintf("%s:%d", vip, outport)
 			logs.Info("add tcp proxy: %s => %s", from, to)
-			err := s.tcpProxy.AddProxy(from, to)
+			err := s.streamProxy.AddProxy("tcp", from, to)
 			if err != nil {
 				logs.Error("add tcp proxy fail: %v", err)
 			} else {
 				defer func() {
-					s.tcpProxy.DelProxy(from)
+					s.streamProxy.DelProxy("tcp", from)
 					logs.Info("del tcp proxy: %s => %s", from, to)
 				}()
 			}
@@ -186,12 +182,12 @@ func (s *Server) onConn(conn net.Conn) {
 			from := fmt.Sprintf("0.0.0.0:%d", inport)
 			to := fmt.Sprintf("%s:%d", vip, outport)
 			logs.Info("add udp proxy: %s => %s", from, to)
-			err := s.udpProxy.AddProxy(from, to)
+			err := s.streamProxy.AddProxy("udp", from, to)
 			if err != nil {
 				logs.Error("add udp proxy fail: %v", err)
 			} else {
 				defer func() {
-					s.udpProxy.DelProxy(from)
+					s.streamProxy.DelProxy("udp", from)
 					logs.Info("del udp proxy: %s => %s", from, to)
 				}()
 			}
