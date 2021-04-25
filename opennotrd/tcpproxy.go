@@ -37,6 +37,16 @@ func (t *TCPProxy) RunProxy(item *ProxyItem) error {
 		defer lis.Close()
 		defer close(fin)
 
+		sess := &sync.Map{}
+		defer func() {
+			sess.Range(func(k, v interface{}) bool {
+				if conn, ok := v.(net.Conn); ok {
+					conn.Close()
+				}
+				return true
+			})
+		}()
+
 		for {
 			conn, err := lis.Accept()
 			if err != nil {
@@ -44,7 +54,11 @@ func (t *TCPProxy) RunProxy(item *ProxyItem) error {
 				break
 			}
 
-			go t.doProxy(conn, to)
+			go func() {
+				sess.Store(conn.RemoteAddr().String(), conn)
+				defer sess.Delete(conn.RemoteAddr().String())
+				t.doProxy(conn, to)
+			}()
 		}
 	}()
 
