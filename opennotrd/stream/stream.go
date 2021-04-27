@@ -16,9 +16,13 @@ type ProxyItem struct {
 	Protocol      string
 	From          string
 	To            string
-	Host          string
+	Host          string      // host for restyproxy
 	Ctx           interface{} // data pass to proxier
-	recycleSignal chan struct{}
+	RecycleSignal chan struct{}
+}
+
+func (item *ProxyItem) identify() string {
+	return fmt.Sprintf("%s:%s:%s:%s", item.Protocol, item.From, item.To, item.Host)
 }
 
 // Proxier defines stream proxy API
@@ -31,7 +35,7 @@ type Stream struct {
 	mu sync.Mutex
 
 	// routes stores proxier of localAddress
-	// key: protocol://localAddr eg: tcp://0.0.0.0:2222
+	// key: proxyItem.identify()
 	// value: proxyItem
 	routes map[string]*ProxyItem
 
@@ -50,24 +54,17 @@ func RegisterProxier(protocol string, proxier Proxier) {
 	stream.proxier[protocol] = proxier
 }
 
-func (p *Stream) AddProxy(protocol, from, to string) error {
+func (p *Stream) AddProxy(item *ProxyItem) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	key := protocol + "://" + from
+	key := item.identify()
 	if _, ok := p.routes[key]; ok {
 		return fmt.Errorf("port %s is in used", key)
 	}
 
-	proxier, ok := p.proxier[protocol]
+	proxier, ok := p.proxier[item.Protocol]
 	if !ok {
-		return fmt.Errorf("proxy %s not register", protocol)
-	}
-
-	item := &ProxyItem{
-		Protocol:      protocol,
-		From:          from,
-		To:            to,
-		recycleSignal: make(chan struct{}),
+		return fmt.Errorf("proxy %s not register", item.Protocol)
 	}
 
 	err := proxier.RunProxy(item)
@@ -79,23 +76,19 @@ func (p *Stream) AddProxy(protocol, from, to string) error {
 	return nil
 }
 
-func (p *Stream) DelProxy(protocol, from string) {
+func (p *Stream) DelProxy(item *ProxyItem) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	key := protocol + "://" + from
-	item, ok := p.routes[key]
-	if !ok {
-		return
-	}
+	key := item.identify()
 
 	// send recycle signal
 	// proxier will close local connection
-	select {
-	case item.recycleSignal <- struct{}{}:
-	default:
-	}
+	// select {
+	// case item.RecycleSignal <- struct{}{}:
+	// default:
+	// }
 
-	proxier, ok := p.proxier[protocol]
+	proxier, ok := p.proxier[item.Protocol]
 	if ok {
 		proxier.StopProxy(item)
 	}

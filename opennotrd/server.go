@@ -165,12 +165,20 @@ func (s *Server) onConn(conn net.Conn) {
 			from := fmt.Sprintf("0.0.0.0:%d", inport)
 			to := fmt.Sprintf("%s:%d", vip, outport)
 			logs.Info("add tcp proxy: %s => %s", from, to)
-			err := s.streamProxy.AddProxy("tcp", from, to)
+
+			item := &stream.ProxyItem{
+				Protocol:      "udp",
+				From:          from,
+				To:            to,
+				RecycleSignal: make(chan struct{}),
+			}
+
+			err := s.streamProxy.AddProxy(item)
 			if err != nil {
 				logs.Error("add tcp proxy fail: %v", err)
 			} else {
 				defer func() {
-					s.streamProxy.DelProxy("tcp", from)
+					s.streamProxy.DelProxy(item)
 					logs.Info("del tcp proxy: %s => %s", from, to)
 				}()
 			}
@@ -183,12 +191,20 @@ func (s *Server) onConn(conn net.Conn) {
 			from := fmt.Sprintf("0.0.0.0:%d", inport)
 			to := fmt.Sprintf("%s:%d", vip, outport)
 			logs.Info("add udp proxy: %s => %s", from, to)
-			err := s.streamProxy.AddProxy("udp", from, to)
+
+			item := &stream.ProxyItem{
+				Protocol:      "udp",
+				From:          from,
+				To:            to,
+				RecycleSignal: make(chan struct{}),
+			}
+
+			err := s.streamProxy.AddProxy(item)
 			if err != nil {
 				logs.Error("add udp proxy fail: %v", err)
 			} else {
 				defer func() {
-					s.streamProxy.DelProxy("udp", from)
+					s.streamProxy.DelProxy(item)
 					logs.Info("del udp proxy: %s => %s", from, to)
 				}()
 			}

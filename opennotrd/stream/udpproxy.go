@@ -14,7 +14,12 @@ func init() {
 
 type UDPProxy struct{}
 
-func (p *UDPProxy) StopProxy(item *ProxyItem) {}
+func (p *UDPProxy) StopProxy(item *ProxyItem) {
+	select {
+	case item.RecycleSignal <- struct{}{}:
+	default:
+	}
+}
 
 func (p *UDPProxy) RunProxy(item *ProxyItem) error {
 	from := item.From
@@ -44,7 +49,7 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *ProxyItem) {
 	// then close all the client socket and end udpCopy
 	go func() {
 		select {
-		case <-item.recycleSignal:
+		case <-item.RecycleSignal:
 			logs.Info("receive recycle signal for %s", from)
 			lis.Close()
 		case <-ctx.Done():

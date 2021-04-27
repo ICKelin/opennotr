@@ -15,7 +15,12 @@ func init() {
 
 type TCPProxy struct{}
 
-func (t *TCPProxy) StopProxy(item *ProxyItem) {}
+func (t *TCPProxy) StopProxy(item *ProxyItem) {
+	select {
+	case item.RecycleSignal <- struct{}{}:
+	default:
+	}
+}
 
 func (t *TCPProxy) RunProxy(item *ProxyItem) error {
 	from, to := item.From, item.To
@@ -27,7 +32,7 @@ func (t *TCPProxy) RunProxy(item *ProxyItem) error {
 	fin := make(chan struct{})
 	go func() {
 		select {
-		case <-item.recycleSignal:
+		case <-item.RecycleSignal:
 			logs.Info("receive recycle signal for %s", from)
 			lis.Close()
 		case <-fin:

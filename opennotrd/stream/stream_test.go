@@ -35,7 +35,12 @@ func onconn(conn net.Conn, bufsize int) {
 }
 
 func runEcho(t *testing.T, bufsize, numconn int) {
-	err := stream.AddProxy("tcp", "127.0.0.1:1234", "127.0.0.1:2345")
+	item := &ProxyItem{
+		Protocol: "tcp",
+		From:     "127.0.0.1:1234",
+		To:       "127.0.0.1:2345",
+	}
+	err := stream.AddProxy(item)
 	if err != nil {
 		t.Error(err)
 		return

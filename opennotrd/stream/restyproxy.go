@@ -12,6 +12,8 @@ import (
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
+var restyAdminUrl string
+
 func init() {
 	RegisterProxier("http", &RestyProxy{})
 	RegisterProxier("https", &RestyProxy{})
@@ -29,7 +31,13 @@ type RestyProxy struct {
 	restyAdminUrl string
 }
 
-func (p *RestyProxy) StopProxy(item *ProxyItem) {}
+func SetRestyAdminUrl(url string) {
+	restyAdminUrl = url
+}
+
+func (p *RestyProxy) StopProxy(item *ProxyItem) {
+	p.sendDeleteReq(item.Host, item.Protocol)
+}
 
 func (p *RestyProxy) RunProxy(item *ProxyItem) error {
 	vip, port, err := net.SplitHostPort(item.To)
