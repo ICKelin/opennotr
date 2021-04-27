@@ -80,12 +80,14 @@ func (t *TCPProxy) doProxy(conn net.Conn, to string) {
 
 	go func() {
 		defer wg.Done()
-		io.Copy(toconn, conn)
+		buf := make([]byte, 1500)
+		io.CopyBuffer(toconn, conn, buf)
 	}()
 
 	go func() {
 		defer wg.Done()
-		io.Copy(conn, toconn)
+		buf := make([]byte, 1500)
+		io.CopyBuffer(conn, toconn, buf)
 	}()
 	wg.Wait()
 }

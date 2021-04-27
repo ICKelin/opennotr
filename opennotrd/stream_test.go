@@ -82,6 +82,18 @@ func TestTCEcho512B(t *testing.T) {
 	runEcho(t, bufsize, numconn)
 }
 
+func TestTCEcho1K(t *testing.T) {
+	numconn := 1024
+	bufsize := 1024
+	runEcho(t, bufsize, numconn)
+}
+
+func TestTCEcho2K(t *testing.T) {
+	numconn := 1024 * 2
+	bufsize := 1024
+	runEcho(t, bufsize, numconn)
+}
+
 func TestUDPPProxy(t *testing.T) {}
 
 func BenchmarkTCPProxy(t *testing.B) {}

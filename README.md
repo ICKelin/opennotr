@@ -24,6 +24,8 @@ opennotr是一款开源的内网穿透软件，opennotr基于VPN技术构建虚�
 
 opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实现http，https，grpc协议端口复用，opennotr引入了openresty作为网关，从而多个客户端不同域名可以共享http的80，https的443端口，不需要额外的端口。
 
+**Status: Alpha**
+
 ## 目录
 - [介绍](#介绍)
 - [opennotr的技术原理](#opennotr的技术原理)

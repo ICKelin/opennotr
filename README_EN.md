@@ -6,6 +6,9 @@ opennotr is a nat tranversal application base on a VPN tunnel and openresty.
 
 opennotr provides http, https, grpc, tcp and udp nat traversal. For http, https, grpc, opennotr supports multi client share the 80/443 ports, it maybe useful for wechat, facebook webhook debug.
 
+
+**Status: Alpha**
+
 The technical architecture of opennotr
 
 ![opennotr.jpg](opennotr.jpg)
