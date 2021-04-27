@@ -11,6 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ICKelin/opennotr/opennotrd/stream"
 	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
@@ -51,7 +52,7 @@ type Server struct {
 	upstreamMgr *UpstreamManager
 
 	// call stream proxy for dynamic add/del tcp/udp proxy
-	streamProxy *Stream
+	streamProxy *stream.Stream
 
 	// tun device wraper
 	dev *device.Device
@@ -77,7 +78,7 @@ func NewServer(cfg ServerConfig,
 		publicIP:    publicIP(),
 		dhcp:        dhcp,
 		upstreamMgr: upstreamMgr,
-		streamProxy: DefaultStream(),
+		streamProxy: stream.DefaultStream(),
 		dev:         dev,
 		resolver:    resolver,
 	}

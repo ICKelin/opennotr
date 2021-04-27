@@ -1,4 +1,4 @@
-package main
+package stream
 
 import (
 	"net"
@@ -65,30 +65,30 @@ func runEcho(t *testing.T, bufsize, numconn int) {
 	lis.Close()
 }
 
-func TestTCEcho128B(t *testing.T) {
+func TestTCPEcho128B(t *testing.T) {
 	numconn := 128
 	bufsize := 1024
 	runEcho(t, bufsize, numconn)
 }
 
-func TestTCEcho256B(t *testing.T) {
+func TestTCPEcho256B(t *testing.T) {
 	numconn := 256
 	bufsize := 1024
 	runEcho(t, bufsize, numconn)
 }
-func TestTCEcho512B(t *testing.T) {
+func TestTCPEcho512B(t *testing.T) {
 	numconn := 512
 	bufsize := 1024
 	runEcho(t, bufsize, numconn)
 }
 
-func TestTCEcho1K(t *testing.T) {
+func TestTCPEcho1K(t *testing.T) {
 	numconn := 1024
 	bufsize := 1024
 	runEcho(t, bufsize, numconn)
 }
 
-func TestTCEcho2K(t *testing.T) {
+func TestTCPEcho2K(t *testing.T) {
 	numconn := 1024 * 2
 	bufsize := 1024
 	runEcho(t, bufsize, numconn)

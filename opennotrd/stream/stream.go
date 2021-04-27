@@ -1,4 +1,4 @@
-package main
+package stream
 
 import (
 	"fmt"
@@ -16,9 +16,11 @@ type ProxyItem struct {
 	Protocol      string
 	From          string
 	To            string
+	Ctx           interface{} // data pass to proxier
 	recycleSignal chan struct{}
 }
 
+// Proxier defines stream proxy API
 type Proxier interface {
 	RunProxy(item *ProxyItem) error
 }
@@ -26,10 +28,13 @@ type Proxier interface {
 type Stream struct {
 	mu sync.Mutex
 
+	// routes stores proxier of localAddress
 	// key: protocol://localAddr eg: tcp://0.0.0.0:2222
 	// value: proxyItem
 	routes map[string]*ProxyItem
 
+	// proxier stores proxier info of each registerd proxier
+	// by call RegisterProxier function.
 	// key: protocol, eg: tcp, udp
 	// value: proxy implement
 	proxier map[string]Proxier
@@ -81,8 +86,8 @@ func (p *Stream) DelProxy(protocol, from string) {
 		return
 	}
 
-	// send recycle port signal
-	// proxy will close local connection
+	// send recycle signal
+	// proxier will close local connection
 	select {
 	case item.recycleSignal <- struct{}{}:
 	default:

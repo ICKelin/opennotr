@@ -18,6 +18,7 @@ Table of Contents
 - [Features](#Features)
 - [Build](#build)
 - [Install](#Install)
+- [Plugin](#Plugin)
 - [Technology details](#Technology-details)
 - [Author](#Author)
 
@@ -28,6 +29,7 @@ opennotr provides these features:
 - Supports multi protocol, http, https, grpc, tcp, udp.
 - Multi client shares the same http, https, grpc port, for example: client A use `a.notr.tech` domain, client B use `b.notr.tech`, they can both use 80 port for http. Opennotr use openresty for dynamic upstream.
 - Dynamic dns support, opennotr use coredns and etcd for dynamic dns.
+- Support stream proxy plugin
 
 [Back to TOC](#table-of-contents)
 
@@ -103,6 +105,24 @@ docker-compose up -d opennotrd
 ```
 
 [Back to TOC](#table-of-contents)
+
+Plugin
+=======
+opennotr provide plugin interface for developer, Yes, tcp and udp are buildin plugins. 
+
+For a new plugin, you should implement the Proxier interface which contains RunProxy method.
+
+```
+type Proxier interface {
+	RunProxy(item *ProxyItem) error
+}
+```
+
+And then import the plugin pakcage in main.go
+
+```
+import _ "path to you plugin package"
+```
 
 Technology details
 ==================
