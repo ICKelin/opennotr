@@ -16,12 +16,14 @@ type ProxyItem struct {
 	Protocol      string
 	From          string
 	To            string
+	Host          string
 	Ctx           interface{} // data pass to proxier
 	recycleSignal chan struct{}
 }
 
 // Proxier defines stream proxy API
 type Proxier interface {
+	StopProxy(item *ProxyItem)
 	RunProxy(item *ProxyItem) error
 }
 
@@ -92,5 +94,11 @@ func (p *Stream) DelProxy(protocol, from string) {
 	case item.recycleSignal <- struct{}{}:
 	default:
 	}
+
+	proxier, ok := p.proxier[protocol]
+	if ok {
+		proxier.StopProxy(item)
+	}
+
 	delete(p.routes, key)
 }

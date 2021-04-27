@@ -15,6 +15,8 @@ func init() {
 
 type TCPProxy struct{}
 
+func (t *TCPProxy) StopProxy(item *ProxyItem) {}
+
 func (t *TCPProxy) RunProxy(item *ProxyItem) error {
 	from, to := item.From, item.To
 	lis, err := net.Listen("tcp", from)

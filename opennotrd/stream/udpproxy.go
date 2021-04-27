@@ -14,6 +14,8 @@ func init() {
 
 type UDPProxy struct{}
 
+func (p *UDPProxy) StopProxy(item *ProxyItem) {}
+
 func (p *UDPProxy) RunProxy(item *ProxyItem) error {
 	from := item.From
 	laddr, err := net.ResolveUDPAddr("udp", from)
