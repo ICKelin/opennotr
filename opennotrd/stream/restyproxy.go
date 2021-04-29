@@ -27,13 +27,13 @@ type AddUpstreamBody struct {
 	Port   string `json:"port"`
 }
 
-type RestyProxy struct {
-	restyAdminUrl string
-}
+type RestyProxy struct{}
 
 func SetRestyAdminUrl(url string) {
 	restyAdminUrl = url
 }
+
+func (p *RestyProxy) Setup(config json.RawMessage) {}
 
 func (p *RestyProxy) StopProxy(item *ProxyItem) {
 	p.sendDeleteReq(item.Host, item.Protocol)
@@ -64,7 +64,7 @@ func (p *RestyProxy) sendPostReq(body interface{}) {
 	buf, _ := json.Marshal(body)
 	br := bytes.NewBuffer(buf)
 
-	req, err := http.NewRequest("POST", p.restyAdminUrl, br)
+	req, err := http.NewRequest("POST", restyAdminUrl, br)
 	if err != nil {
 		logs.Error("request %v fail: %v", body, err)
 		return
@@ -82,14 +82,14 @@ func (p *RestyProxy) sendPostReq(body interface{}) {
 		logs.Error("request %v fail: %v", body, err)
 		return
 	}
-	logs.Info("set upstream reply: %s", string(cnt))
+	logs.Info("set upstream %v reply: %s", body, string(cnt))
 }
 
 func (p *RestyProxy) sendDeleteReq(host, scheme string) {
 	cli := http.Client{
 		Timeout: time.Second * 10,
 	}
-	url := fmt.Sprintf("%s?host=%s&scheme=%s", p.restyAdminUrl, host, scheme)
+	url := fmt.Sprintf("%s?host=%s&scheme=%s", restyAdminUrl, host, scheme)
 	req, err := http.NewRequest("DELETE", url, nil)
 	if err != nil {
 		logs.Error("delete host %s fail: %v", host, err)

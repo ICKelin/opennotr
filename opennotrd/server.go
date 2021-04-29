@@ -49,7 +49,7 @@ type Server struct {
 	// call resty-upstream for dynamic upstream
 	// for http, https, grpc, websocket
 	// Ref: https://github.com/ICKelin/resty-upstream
-	upstreamMgr *UpstreamManager
+	// upstreamMgr *UpstreamManager
 
 	// call stream proxy for dynamic add/del tcp/udp proxy
 	streamProxy *stream.Stream
@@ -68,7 +68,6 @@ type Server struct {
 
 func NewServer(cfg ServerConfig,
 	dhcp *DHCP,
-	upstreamMgr *UpstreamManager,
 	dev *device.Device,
 	resolver *Resolver) *Server {
 	return &Server{
@@ -77,7 +76,6 @@ func NewServer(cfg ServerConfig,
 		domain:      cfg.Domain,
 		publicIP:    publicIP(),
 		dhcp:        dhcp,
-		upstreamMgr: upstreamMgr,
 		streamProxy: stream.DefaultStream(),
 		dev:         dev,
 		resolver:    resolver,
@@ -156,8 +154,40 @@ func (s *Server) onConn(conn net.Conn) {
 	logs.Info("select domain: %s", auth.Domain)
 
 	// dynamic upstream
-	s.upstreamMgr.AddUpstream(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
-	defer s.upstreamMgr.DelUpstream(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
+	// s.upstreamMgr.AddUpstream(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
+	// defer s.upstreamMgr.DelUpstream(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
+	if auth.HTTP != 0 {
+		item := &stream.ProxyItem{
+			Protocol: "http",
+			From:     "",
+			To:       fmt.Sprintf("%s:%d", vip, auth.HTTP),
+			Host:     auth.Domain,
+		}
+		s.streamProxy.AddProxy(item)
+		defer s.streamProxy.DelProxy(item)
+	}
+
+	if auth.HTTPS != 0 {
+		item := &stream.ProxyItem{
+			Protocol: "https",
+			From:     "",
+			To:       fmt.Sprintf("%s:%d", vip, auth.HTTP),
+			Host:     auth.Domain,
+		}
+		s.streamProxy.AddProxy(item)
+		defer s.streamProxy.DelProxy(item)
+	}
+
+	if auth.Grpc != 0 {
+		item := &stream.ProxyItem{
+			Protocol: "h2c",
+			From:     "",
+			To:       fmt.Sprintf("%s:%d", vip, auth.HTTP),
+			Host:     auth.Domain,
+		}
+		s.streamProxy.AddProxy(item)
+		defer s.streamProxy.DelProxy(item)
+	}
 
 	// dynamic tcp proxy
 	if len(auth.TCPs) != 0 {
@@ -167,7 +197,7 @@ func (s *Server) onConn(conn net.Conn) {
 			logs.Info("add tcp proxy: %s => %s", from, to)
 
 			item := &stream.ProxyItem{
-				Protocol:      "udp",
+				Protocol:      "tcp",
 				From:          from,
 				To:            to,
 				RecycleSignal: make(chan struct{}),

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/ICKelin/opennotr/opennotrd/stream"
 	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
@@ -52,7 +53,8 @@ func main() {
 	// create upstream manager
 	// upstream manager send http POST/DELETE to create/delete upstream
 	// the api server is based on openresty
-	p := NewUpstreamManager(cfg.UpstreamConfig.RemoteAddr)
+	// p := NewUpstreamManager(cfg.UpstreamConfig.RemoteAddr)
+	stream.SetRestyAdminUrl(cfg.UpstreamConfig.RemoteAddr)
 
 	// 初始化域名解析配置
 	var resolver *Resolver
@@ -64,6 +66,6 @@ func main() {
 		}
 	}
 	// 启动tcp server
-	s := NewServer(cfg.ServerConfig, dhcp, p, dev, resolver)
+	s := NewServer(cfg.ServerConfig, dhcp, dev, resolver)
 	fmt.Println(s.ListenAndServe())
 }

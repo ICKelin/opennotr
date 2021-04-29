@@ -2,6 +2,7 @@ package stream
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"sync"
 
@@ -13,6 +14,8 @@ func init() {
 }
 
 type UDPProxy struct{}
+
+func (p *UDPProxy) Setup(config json.RawMessage) {}
 
 func (p *UDPProxy) StopProxy(item *ProxyItem) {
 	select {

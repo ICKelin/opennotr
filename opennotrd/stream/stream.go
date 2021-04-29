@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync"
 
@@ -27,6 +28,7 @@ func (item *ProxyItem) identify() string {
 
 // Proxier defines stream proxy API
 type Proxier interface {
+	Setup(json.RawMessage)
 	StopProxy(item *ProxyItem)
 	RunProxy(item *ProxyItem) error
 }
@@ -80,13 +82,6 @@ func (p *Stream) DelProxy(item *ProxyItem) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	key := item.identify()
-
-	// send recycle signal
-	// proxier will close local connection
-	// select {
-	// case item.RecycleSignal <- struct{}{}:
-	// default:
-	// }
 
 	proxier, ok := p.proxier[item.Protocol]
 	if ok {

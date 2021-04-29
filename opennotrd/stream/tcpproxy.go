@@ -1,6 +1,7 @@
 package stream
 
 import (
+	"encoding/json"
 	"io"
 	"net"
 	"sync"
@@ -14,6 +15,8 @@ func init() {
 }
 
 type TCPProxy struct{}
+
+func (t *TCPProxy) Setup(config json.RawMessage) {}
 
 func (t *TCPProxy) StopProxy(item *ProxyItem) {
 	select {
