@@ -17,13 +17,13 @@ type ProxyItem struct {
 	Protocol      string
 	From          string
 	To            string
-	Host          string      // host for restyproxy
+	Domain        string
 	Ctx           interface{} // data pass to proxier
 	RecycleSignal chan struct{}
 }
 
 func (item *ProxyItem) identify() string {
-	return fmt.Sprintf("%s:%s:%s:%s", item.Protocol, item.From, item.To, item.Host)
+	return fmt.Sprintf("%s:%s:%s:%s", item.Protocol, item.From, item.To, item.Domain)
 }
 
 // Proxier defines stream proxy API

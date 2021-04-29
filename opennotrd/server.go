@@ -154,14 +154,14 @@ func (s *Server) onConn(conn net.Conn) {
 	// from member is not used for restyproxy
 	// 2. for to address, we use $vip:$upstreamPort
 	// the vip is the virtual lan ip address
-	// Host is only use for restyproxy
+	// Domain is only use for restyproxy
 	for _, forward := range auth.Forward {
 		for localPort, upstreamPort := range forward.Ports {
 			item := &plugin.ProxyItem{
 				Protocol:      forward.Protocol,
 				From:          fmt.Sprintf("0.0.0.0:%d", localPort),
 				To:            fmt.Sprintf("%s:%d", vip, upstreamPort),
-				Host:          auth.Domain,
+				Domain:        auth.Domain,
 				RecycleSignal: make(chan struct{}),
 			}
 

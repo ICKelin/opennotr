@@ -4,10 +4,12 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
+	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
 )
 
 func runTCPServer(bufsize int) net.Listener {
-	// backend
 	lis, err := net.Listen("tcp", "127.0.0.1:2345")
 	if err != nil {
 		panic(err)
@@ -35,12 +37,12 @@ func onconn(conn net.Conn, bufsize int) {
 }
 
 func runEcho(t *testing.T, bufsize, numconn int) {
-	item := &ProxyItem{
+	item := &plugin.ProxyItem{
 		Protocol: "tcp",
 		From:     "127.0.0.1:1234",
 		To:       "127.0.0.1:2345",
 	}
-	err := stream.AddProxy(item)
+	err := plugin.DefaultStream().AddProxy(item)
 	if err != nil {
 		t.Error(err)
 		return

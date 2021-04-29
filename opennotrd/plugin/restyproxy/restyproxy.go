@@ -47,7 +47,7 @@ func (p *RestyProxy) Setup(config json.RawMessage) error {
 }
 
 func (p *RestyProxy) StopProxy(item *plugin.ProxyItem) {
-	p.sendDeleteReq(item.Host, item.Protocol)
+	p.sendDeleteReq(item.Domain, item.Protocol)
 }
 
 func (p *RestyProxy) RunProxy(item *plugin.ProxyItem) error {
@@ -58,7 +58,7 @@ func (p *RestyProxy) RunProxy(item *plugin.ProxyItem) error {
 
 	req := &AddUpstreamBody{
 		Scheme: item.Protocol,
-		Host:   item.Host,
+		Host:   item.Domain,
 		IP:     vip,
 		Port:   port,
 	}
