@@ -22,4 +22,19 @@ plugin:
       "PortMin": 20000,
       "PortMax": 30000
     }
+
+  http: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
+
+  https: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
+    
+  h2c: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
   

@@ -153,97 +153,30 @@ func (s *Server) onConn(conn net.Conn) {
 	logs.Info("select vip: %s", vip)
 	logs.Info("select domain: %s", auth.Domain)
 
-	// dynamic upstream
-	// s.upstreamMgr.AddUpstream(auth.HTTP, auth.HTTPS, auth.Grpc, auth.Domain, vip)
-	// defer s.upstreamMgr.DelUpstream(auth.Domain, auth.HTTP, auth.HTTPS, auth.Grpc)
-	if auth.HTTP != 0 {
-		item := &stream.ProxyItem{
-			Protocol: "http",
-			From:     "",
-			To:       fmt.Sprintf("%s:%d", vip, auth.HTTP),
-			Host:     auth.Domain,
-		}
-		s.streamProxy.AddProxy(item)
-		defer s.streamProxy.DelProxy(item)
-	}
-
-	if auth.HTTPS != 0 {
-		item := &stream.ProxyItem{
-			Protocol: "https",
-			From:     "",
-			To:       fmt.Sprintf("%s:%d", vip, auth.HTTP),
-			Host:     auth.Domain,
-		}
-		s.streamProxy.AddProxy(item)
-		defer s.streamProxy.DelProxy(item)
-	}
-
-	if auth.Grpc != 0 {
-		item := &stream.ProxyItem{
-			Protocol: "h2c",
-			From:     "",
-			To:       fmt.Sprintf("%s:%d", vip, auth.HTTP),
-			Host:     auth.Domain,
-		}
-		s.streamProxy.AddProxy(item)
-		defer s.streamProxy.DelProxy(item)
-	}
-
-	// dynamic tcp proxy
-	if len(auth.TCPs) != 0 {
-		for inport, outport := range auth.TCPs {
-			from := fmt.Sprintf("0.0.0.0:%d", inport)
-			to := fmt.Sprintf("%s:%d", vip, outport)
-			logs.Info("add tcp proxy: %s => %s", from, to)
-
+	// create forward
+	// $localPort => vip:$upstreamPort
+	// 1. for from address, we listen 0.0.0.0:$inport
+	// from member is not used for restyproxy
+	// 2. for to address, we use $vip:$upstreamPort
+	// the vip is the virtual lan ip address
+	// Host is only use for restyproxy
+	for _, forward := range auth.Forward {
+		for localPort, upstreamPort := range forward.Ports {
 			item := &stream.ProxyItem{
-				Protocol:      "tcp",
-				From:          from,
-				To:            to,
+				Protocol:      forward.Protocol,
+				From:          fmt.Sprintf("0.0.0.0:%d", localPort),
+				To:            fmt.Sprintf("%s:%d", vip, upstreamPort),
+				Host:          auth.Domain,
 				RecycleSignal: make(chan struct{}),
 			}
 
-			err := s.streamProxy.AddProxy(item)
-			if err != nil {
-				logs.Error("add tcp proxy fail: %v", err)
-			} else {
-				defer func() {
-					s.streamProxy.DelProxy(item)
-					logs.Info("del tcp proxy: %s => %s", from, to)
-				}()
-			}
+			s.streamProxy.AddProxy(item)
+			defer s.streamProxy.DelProxy(item)
 		}
 	}
 
-	// dynamic udp proxy
-	if len(auth.UDPs) != 0 {
-		for inport, outport := range auth.UDPs {
-			from := fmt.Sprintf("0.0.0.0:%d", inport)
-			to := fmt.Sprintf("%s:%d", vip, outport)
-			logs.Info("add udp proxy: %s => %s", from, to)
-
-			item := &stream.ProxyItem{
-				Protocol:      "udp",
-				From:          from,
-				To:            to,
-				RecycleSignal: make(chan struct{}),
-			}
-
-			err := s.streamProxy.AddProxy(item)
-			if err != nil {
-				logs.Error("add udp proxy fail: %v", err)
-			} else {
-				defer func() {
-					s.streamProxy.DelProxy(item)
-					logs.Info("del udp proxy: %s => %s", from, to)
-				}()
-			}
-		}
-	}
-
-	// tunnel
+	// tunnel session
 	sess := newSession(conn, conn.RemoteAddr().String())
-
 	s.sess.Store(vip, sess)
 	defer s.sess.Delete(vip)
 

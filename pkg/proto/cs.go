@@ -19,13 +19,15 @@ type S2CHeartbeat struct {
 type C2SHeartbeat struct{}
 
 type C2SAuth struct {
-	Key    string      `json:"key"`
-	Domain string      `json:"domain"` // 域名，不传则由服务端随机生成
-	HTTP   int         `json:"http"`   // 本地http端口，为0则不指定
-	HTTPS  int         `json:"https"`  // http端口，为0则不指定
-	Grpc   int         `json:"grpc"`   // grpc端口，为0则不指定
-	TCPs   map[int]int `json:"tcps"`   // tcp端口
-	UDPs   map[int]int `json:"udps"`   // udp端口
+	Key     string        `json:"key"`
+	Domain  string        `json:"domain"`
+	Forward []ForwardItem `json:"forwards"`
+}
+
+type ForwardItem struct {
+	Protocol string      `json:"protocol"` // forward protocol
+	Ports    map[int]int `json:"ports"`    // forward to local ports
+	// ... add other item to controller forward
 }
 
 type S2CAuth struct {

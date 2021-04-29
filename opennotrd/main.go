@@ -51,9 +51,11 @@ func main() {
 		return
 	}
 
-	stream.DefaultStream().Setup(cfg.Plugins)
+	stream.Setup(cfg.Plugins)
 
-	// 初始化域名解析配置
+	// initial resolver
+	// currently resolver use coredns and etcd
+	// our resolver just write DOMAIN => VIP record to etcd
 	var resolver *Resolver
 	if len(cfg.ResolverConfig.EtcdEndpoints) > 0 {
 		resolver, err = NewResolve(cfg.ResolverConfig.EtcdEndpoints)
@@ -62,7 +64,9 @@ func main() {
 			return
 		}
 	}
-	// 启动tcp server
+
+	// run tunnel tcp server, it will cause tcp over tcp problems
+	// it may changed to udp later.
 	s := NewServer(cfg.ServerConfig, dhcp, dev, resolver)
 	fmt.Println(s.ListenAndServe())
 }

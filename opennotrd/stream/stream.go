@@ -56,7 +56,7 @@ func RegisterProxier(protocol string, proxier Proxier) {
 	stream.proxier[protocol] = proxier
 }
 
-func (p *Stream) Setup(plugins map[string]string) error {
+func Setup(plugins map[string]string) error {
 	for protocol, cfg := range plugins {
 		logs.Info("setup for %s with configuration:\n%s", protocol, cfg)
 		proxier, ok := stream.proxier[protocol]
