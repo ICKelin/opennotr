@@ -1,4 +1,4 @@
-package stream
+package udpproxy
 
 import (
 	"context"
@@ -6,25 +6,26 @@ import (
 	"net"
 	"sync"
 
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
 func init() {
-	RegisterProxier("udp", &UDPProxy{})
+	plugin.RegisterProxier("udp", &UDPProxy{})
 }
 
 type UDPProxy struct{}
 
 func (p *UDPProxy) Setup(config json.RawMessage) error { return nil }
 
-func (p *UDPProxy) StopProxy(item *ProxyItem) {
+func (p *UDPProxy) StopProxy(item *plugin.ProxyItem) {
 	select {
 	case item.RecycleSignal <- struct{}{}:
 	default:
 	}
 }
 
-func (p *UDPProxy) RunProxy(item *ProxyItem) error {
+func (p *UDPProxy) RunProxy(item *plugin.ProxyItem) error {
 	from := item.From
 	laddr, err := net.ResolveUDPAddr("udp", from)
 	if err != nil {
@@ -40,7 +41,7 @@ func (p *UDPProxy) RunProxy(item *ProxyItem) error {
 	return nil
 }
 
-func (p *UDPProxy) doProxy(lis *net.UDPConn, item *ProxyItem) {
+func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.ProxyItem) {
 	defer lis.Close()
 
 	from := item.From

@@ -5,9 +5,14 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/ICKelin/opennotr/opennotrd/stream"
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
 	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
+
+	// plugin import to register
+	_ "github.com/ICKelin/opennotr/opennotrd/plugin/restyproxy"
+	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
+	_ "github.com/ICKelin/opennotr/opennotrd/plugin/udpproxy"
 )
 
 func main() {
@@ -51,7 +56,7 @@ func main() {
 		return
 	}
 
-	stream.Setup(cfg.Plugins)
+	plugin.Setup(cfg.Plugins)
 
 	// initial resolver
 	// currently resolver use coredns and etcd

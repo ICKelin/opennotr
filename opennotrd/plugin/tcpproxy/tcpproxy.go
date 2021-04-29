@@ -1,4 +1,4 @@
-package stream
+package tcpproxy
 
 import (
 	"encoding/json"
@@ -7,25 +7,26 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
 func init() {
-	RegisterProxier("tcp", &TCPProxy{})
+	plugin.RegisterProxier("tcp", &TCPProxy{})
 }
 
 type TCPProxy struct{}
 
 func (t *TCPProxy) Setup(config json.RawMessage) error { return nil }
 
-func (t *TCPProxy) StopProxy(item *ProxyItem) {
+func (t *TCPProxy) StopProxy(item *plugin.ProxyItem) {
 	select {
 	case item.RecycleSignal <- struct{}{}:
 	default:
 	}
 }
 
-func (t *TCPProxy) RunProxy(item *ProxyItem) error {
+func (t *TCPProxy) RunProxy(item *plugin.ProxyItem) error {
 	from, to := item.From, item.To
 	lis, err := net.Listen("tcp", from)
 	if err != nil {

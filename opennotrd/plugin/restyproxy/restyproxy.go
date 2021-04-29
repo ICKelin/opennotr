@@ -1,4 +1,4 @@
-package stream
+package restyproxy
 
 import (
 	"bytes"
@@ -9,15 +9,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
 var restyAdminUrl string
 
 func init() {
-	RegisterProxier("http", &RestyProxy{})
-	RegisterProxier("https", &RestyProxy{})
-	RegisterProxier("h2c", &RestyProxy{})
+	plugin.RegisterProxier("http", &RestyProxy{})
+	plugin.RegisterProxier("https", &RestyProxy{})
+	plugin.RegisterProxier("h2c", &RestyProxy{})
 }
 
 type AddUpstreamBody struct {
@@ -45,11 +46,11 @@ func (p *RestyProxy) Setup(config json.RawMessage) error {
 	return nil
 }
 
-func (p *RestyProxy) StopProxy(item *ProxyItem) {
+func (p *RestyProxy) StopProxy(item *plugin.ProxyItem) {
 	p.sendDeleteReq(item.Host, item.Protocol)
 }
 
-func (p *RestyProxy) RunProxy(item *ProxyItem) error {
+func (p *RestyProxy) RunProxy(item *plugin.ProxyItem) error {
 	vip, port, err := net.SplitHostPort(item.To)
 	if err != nil {
 		return err

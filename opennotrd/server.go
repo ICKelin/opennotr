@@ -11,7 +11,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ICKelin/opennotr/opennotrd/stream"
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
 	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
@@ -46,13 +46,8 @@ type Server struct {
 	// dhcp manager select/release ip for client
 	dhcp *DHCP
 
-	// call resty-upstream for dynamic upstream
-	// for http, https, grpc, websocket
-	// Ref: https://github.com/ICKelin/resty-upstream
-	// upstreamMgr *UpstreamManager
-
 	// call stream proxy for dynamic add/del tcp/udp proxy
-	streamProxy *stream.Stream
+	streamProxy *plugin.Stream
 
 	// tun device wraper
 	dev *device.Device
@@ -76,7 +71,7 @@ func NewServer(cfg ServerConfig,
 		domain:      cfg.Domain,
 		publicIP:    publicIP(),
 		dhcp:        dhcp,
-		streamProxy: stream.DefaultStream(),
+		streamProxy: plugin.DefaultStream(),
 		dev:         dev,
 		resolver:    resolver,
 	}
@@ -162,7 +157,7 @@ func (s *Server) onConn(conn net.Conn) {
 	// Host is only use for restyproxy
 	for _, forward := range auth.Forward {
 		for localPort, upstreamPort := range forward.Ports {
-			item := &stream.ProxyItem{
+			item := &plugin.ProxyItem{
 				Protocol:      forward.Protocol,
 				From:          fmt.Sprintf("0.0.0.0:%d", localPort),
 				To:            fmt.Sprintf("%s:%d", vip, upstreamPort),
