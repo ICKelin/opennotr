@@ -15,7 +15,7 @@ func init() {
 
 type UDPProxy struct{}
 
-func (p *UDPProxy) Setup(config json.RawMessage) {}
+func (p *UDPProxy) Setup(config json.RawMessage) error { return nil }
 
 func (p *UDPProxy) StopProxy(item *ProxyItem) {
 	select {

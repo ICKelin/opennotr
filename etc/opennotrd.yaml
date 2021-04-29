@@ -9,4 +9,17 @@ dhcp:
 
 upstream:
   remoteAddr: "http://127.0.0.1:81/upstreams"
+
+plugin:
+  tcp: |
+    {
+      "PortMin": 10000,
+      "PortMax": 20000
+    }
+
+  udp: |
+    {
+      "PortMin": 20000,
+      "PortMax": 30000
+    }
   

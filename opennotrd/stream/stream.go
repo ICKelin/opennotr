@@ -28,7 +28,7 @@ func (item *ProxyItem) identify() string {
 
 // Proxier defines stream proxy API
 type Proxier interface {
-	Setup(json.RawMessage)
+	Setup(json.RawMessage) error
 	StopProxy(item *ProxyItem)
 	RunProxy(item *ProxyItem) error
 }
@@ -54,6 +54,25 @@ func DefaultStream() *Stream {
 
 func RegisterProxier(protocol string, proxier Proxier) {
 	stream.proxier[protocol] = proxier
+}
+
+func (p *Stream) Setup(plugins map[string]string) error {
+	for protocol, cfg := range plugins {
+		logs.Info("setup for %s with configuration:\n%s", protocol, cfg)
+		proxier, ok := stream.proxier[protocol]
+		if !ok {
+			logs.Error("protocol %s not register", protocol)
+			return fmt.Errorf("protocol %s not register", protocol)
+		}
+
+		err := proxier.Setup([]byte(cfg))
+		if err != nil {
+			logs.Error("setup protocol %s fail: %v", protocol, err)
+			return err
+		}
+	}
+
+	return nil
 }
 
 func (p *Stream) AddProxy(item *ProxyItem) error {

@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	ServerConfig   ServerConfig   `yaml:"server"`
-	DHCPConfig     DHCPConfig     `yaml:"dhcp"`
-	UpstreamConfig UpstreamConfig `yaml:"upstream"`
-	ResolverConfig ResolverConfig `yaml:"resolver"`
+	ServerConfig   ServerConfig      `yaml:"server"`
+	DHCPConfig     DHCPConfig        `yaml:"dhcp"`
+	UpstreamConfig UpstreamConfig    `yaml:"upstream"`
+	ResolverConfig ResolverConfig    `yaml:"resolver"`
+	Plugins        map[string]string `yaml:"plugin"`
 }
 
 type ServerConfig struct {

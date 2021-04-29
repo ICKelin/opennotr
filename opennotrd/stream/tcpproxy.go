@@ -16,7 +16,7 @@ func init() {
 
 type TCPProxy struct{}
 
-func (t *TCPProxy) Setup(config json.RawMessage) {}
+func (t *TCPProxy) Setup(config json.RawMessage) error { return nil }
 
 func (t *TCPProxy) StopProxy(item *ProxyItem) {
 	select {

@@ -21,6 +21,7 @@ func main() {
 	}
 
 	logs.Init("opennotrd.log", "debug", 10)
+	logs.Info("config: %v", cfg)
 
 	// initial tun device
 	dev, err := device.New()
@@ -50,11 +51,7 @@ func main() {
 		return
 	}
 
-	// create upstream manager
-	// upstream manager send http POST/DELETE to create/delete upstream
-	// the api server is based on openresty
-	// p := NewUpstreamManager(cfg.UpstreamConfig.RemoteAddr)
-	stream.SetRestyAdminUrl(cfg.UpstreamConfig.RemoteAddr)
+	stream.DefaultStream().Setup(cfg.Plugins)
 
 	// 初始化域名解析配置
 	var resolver *Resolver
