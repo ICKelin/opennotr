@@ -47,7 +47,7 @@ type Server struct {
 	dhcp *DHCP
 
 	// call stream proxy for dynamic add/del tcp/udp proxy
-	streamProxy *plugin.Stream
+	pluginMgr *plugin.PluginManager
 
 	// tun device wraper
 	dev *device.Device
@@ -66,14 +66,14 @@ func NewServer(cfg ServerConfig,
 	dev *device.Device,
 	resolver *Resolver) *Server {
 	return &Server{
-		addr:        cfg.ListenAddr,
-		authKey:     cfg.AuthKey,
-		domain:      cfg.Domain,
-		publicIP:    publicIP(),
-		dhcp:        dhcp,
-		streamProxy: plugin.DefaultStream(),
-		dev:         dev,
-		resolver:    resolver,
+		addr:      cfg.ListenAddr,
+		authKey:   cfg.AuthKey,
+		domain:    cfg.Domain,
+		publicIP:  publicIP(),
+		dhcp:      dhcp,
+		pluginMgr: plugin.DefaultPluginManager(),
+		dev:       dev,
+		resolver:  resolver,
 	}
 }
 
@@ -157,7 +157,7 @@ func (s *Server) onConn(conn net.Conn) {
 	// Domain is only use for restyproxy
 	for _, forward := range auth.Forward {
 		for localPort, upstreamPort := range forward.Ports {
-			item := &plugin.ProxyItem{
+			item := &plugin.PluginMeta{
 				Protocol:      forward.Protocol,
 				From:          fmt.Sprintf("0.0.0.0:%d", localPort),
 				To:            fmt.Sprintf("%s:%d", vip, upstreamPort),
@@ -165,8 +165,8 @@ func (s *Server) onConn(conn net.Conn) {
 				RecycleSignal: make(chan struct{}),
 			}
 
-			s.streamProxy.AddProxy(item)
-			defer s.streamProxy.DelProxy(item)
+			s.pluginMgr.AddProxy(item)
+			defer s.pluginMgr.DelProxy(item)
 		}
 	}
 

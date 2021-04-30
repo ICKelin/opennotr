@@ -16,9 +16,9 @@ import (
 var restyAdminUrl string
 
 func init() {
-	plugin.RegisterProxier("http", &RestyProxy{})
-	plugin.RegisterProxier("https", &RestyProxy{})
-	plugin.RegisterProxier("h2c", &RestyProxy{})
+	plugin.Register("http", &RestyProxy{})
+	plugin.Register("https", &RestyProxy{})
+	plugin.Register("h2c", &RestyProxy{})
 }
 
 type AddUpstreamBody struct {
@@ -46,11 +46,11 @@ func (p *RestyProxy) Setup(config json.RawMessage) error {
 	return nil
 }
 
-func (p *RestyProxy) StopProxy(item *plugin.ProxyItem) {
+func (p *RestyProxy) StopProxy(item *plugin.PluginMeta) {
 	p.sendDeleteReq(item.Domain, item.Protocol)
 }
 
-func (p *RestyProxy) RunProxy(item *plugin.ProxyItem) error {
+func (p *RestyProxy) RunProxy(item *plugin.PluginMeta) error {
 	vip, port, err := net.SplitHostPort(item.To)
 	if err != nil {
 		return err

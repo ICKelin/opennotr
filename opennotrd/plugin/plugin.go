@@ -8,64 +8,64 @@ import (
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
-var stream = &Stream{
-	routes:  make(map[string]*ProxyItem),
-	proxier: make(map[string]Proxier),
+var pluginMgr = &PluginManager{
+	routes:  make(map[string]*PluginMeta),
+	plugins: make(map[string]IPlugin),
 }
 
-type ProxyItem struct {
+type PluginMeta struct {
 	Protocol      string
 	From          string
 	To            string
 	Domain        string
-	Ctx           interface{} // data pass to proxier
+	Ctx           interface{} // data pass to plugin
 	RecycleSignal chan struct{}
 }
 
-func (item *ProxyItem) identify() string {
+func (item *PluginMeta) identify() string {
 	return fmt.Sprintf("%s:%s:%s:%s", item.Protocol, item.From, item.To, item.Domain)
 }
 
-// Proxier defines stream proxy API
-type Proxier interface {
+// IPlugin defines proxy plugin API
+type IPlugin interface {
 	Setup(json.RawMessage) error
-	StopProxy(item *ProxyItem)
-	RunProxy(item *ProxyItem) error
+	StopProxy(item *PluginMeta)
+	RunProxy(item *PluginMeta) error
 }
 
-type Stream struct {
+type PluginManager struct {
 	mu sync.Mutex
 
 	// routes stores proxier of localAddress
-	// key: proxyItem.identify()
-	// value: proxyItem
-	routes map[string]*ProxyItem
+	// key: pluginMeta.identify()
+	// value: pluginMeta
+	routes map[string]*PluginMeta
 
-	// proxier stores proxier info of each registerd proxier
-	// by call RegisterProxier function.
+	// plugins store plugin information
+	// by call plugin.Register function.
 	// key: protocol, eg: tcp, udp
-	// value: proxy implement
-	proxier map[string]Proxier
+	// value: plugin implement
+	plugins map[string]IPlugin
 }
 
-func DefaultStream() *Stream {
-	return stream
+func DefaultPluginManager() *PluginManager {
+	return pluginMgr
 }
 
-func RegisterProxier(protocol string, proxier Proxier) {
-	stream.proxier[protocol] = proxier
+func Register(protocol string, p IPlugin) {
+	pluginMgr.plugins[protocol] = p
 }
 
 func Setup(plugins map[string]string) error {
 	for protocol, cfg := range plugins {
 		logs.Info("setup for %s with configuration:\n%s", protocol, cfg)
-		proxier, ok := stream.proxier[protocol]
+		plug, ok := pluginMgr.plugins[protocol]
 		if !ok {
 			logs.Error("protocol %s not register", protocol)
 			return fmt.Errorf("protocol %s not register", protocol)
 		}
 
-		err := proxier.Setup([]byte(cfg))
+		err := plug.Setup([]byte(cfg))
 		if err != nil {
 			logs.Error("setup protocol %s fail: %v", protocol, err)
 			return err
@@ -75,7 +75,7 @@ func Setup(plugins map[string]string) error {
 	return nil
 }
 
-func (p *Stream) AddProxy(item *ProxyItem) error {
+func (p *PluginManager) AddProxy(item *PluginMeta) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	key := item.identify()
@@ -83,12 +83,12 @@ func (p *Stream) AddProxy(item *ProxyItem) error {
 		return fmt.Errorf("port %s is in used", key)
 	}
 
-	proxier, ok := p.proxier[item.Protocol]
+	plug, ok := p.plugins[item.Protocol]
 	if !ok {
 		return fmt.Errorf("proxy %s not register", item.Protocol)
 	}
 
-	err := proxier.RunProxy(item)
+	err := plug.RunProxy(item)
 	if err != nil {
 		logs.Error("run proxy fail: %v", err)
 		return err
@@ -97,14 +97,14 @@ func (p *Stream) AddProxy(item *ProxyItem) error {
 	return nil
 }
 
-func (p *Stream) DelProxy(item *ProxyItem) {
+func (p *PluginManager) DelProxy(item *PluginMeta) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	key := item.identify()
 
-	proxier, ok := p.proxier[item.Protocol]
+	plug, ok := p.plugins[item.Protocol]
 	if ok {
-		proxier.StopProxy(item)
+		plug.StopProxy(item)
 	}
 
 	delete(p.routes, key)

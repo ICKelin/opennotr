@@ -11,21 +11,21 @@ import (
 )
 
 func init() {
-	plugin.RegisterProxier("udp", &UDPProxy{})
+	plugin.Register("udp", &UDPProxy{})
 }
 
 type UDPProxy struct{}
 
 func (p *UDPProxy) Setup(config json.RawMessage) error { return nil }
 
-func (p *UDPProxy) StopProxy(item *plugin.ProxyItem) {
+func (p *UDPProxy) StopProxy(item *plugin.PluginMeta) {
 	select {
 	case item.RecycleSignal <- struct{}{}:
 	default:
 	}
 }
 
-func (p *UDPProxy) RunProxy(item *plugin.ProxyItem) error {
+func (p *UDPProxy) RunProxy(item *plugin.PluginMeta) error {
 	from := item.From
 	laddr, err := net.ResolveUDPAddr("udp", from)
 	if err != nil {
@@ -41,7 +41,7 @@ func (p *UDPProxy) RunProxy(item *plugin.ProxyItem) error {
 	return nil
 }
 
-func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.ProxyItem) {
+func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 	defer lis.Close()
 
 	from := item.From
