@@ -8,6 +8,10 @@ install:
 before_script:
 script:
     - cd $HOME/gopath/src/github.com/ICKelin/opennotr
+    - chmod +x coverage.sh
+    - ./coverage.sh
     - chmod +x build_exec.sh
     - ./build_exec.sh
 
+after_success:
+    - bash <(curl -s https://codecov.io/bash)

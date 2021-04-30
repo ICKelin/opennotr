@@ -9,6 +9,12 @@ import (
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
 )
 
+var listener net.Listener
+
+func init() {
+
+}
+
 func runTCPServer(bufsize int) net.Listener {
 	lis, err := net.Listen("tcp", "127.0.0.1:2345")
 	if err != nil {
@@ -37,16 +43,18 @@ func onconn(conn net.Conn, bufsize int) {
 }
 
 func runEcho(t *testing.T, bufsize, numconn int) {
-	item := &plugin.ProxyItem{
-		Protocol: "tcp",
-		From:     "127.0.0.1:1234",
-		To:       "127.0.0.1:2345",
+	item := &plugin.PluginMeta{
+		Protocol:      "tcp",
+		From:          "127.0.0.1:1234",
+		To:            "127.0.0.1:2345",
+		RecycleSignal: make(chan struct{}),
 	}
-	err := plugin.DefaultStream().AddProxy(item)
+	err := plugin.DefaultPluginManager().AddProxy(item)
 	if err != nil {
 		t.Error(err)
 		return
 	}
+	defer plugin.DefaultPluginManager().DelProxy(item)
 
 	lis := runTCPServer(bufsize)
 
@@ -68,8 +76,8 @@ func runEcho(t *testing.T, bufsize, numconn int) {
 	}
 	tick := time.NewTicker(time.Second * 60)
 	<-tick.C
-
 	lis.Close()
+	time.Sleep(time.Second)
 }
 
 func TestTCPEcho128B(t *testing.T) {

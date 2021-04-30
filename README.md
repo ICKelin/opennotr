@@ -4,6 +4,9 @@
 
 
 <p align="center">
+  <a href="">
+    <img src="https://img.shields.io/badge/-Go-000?&logo=go">
+  </a>
   <a href="https://goreportcard.com/report/github.com/ICKelin/opennotr" rel="nofollow">
     <img src="https://goreportcard.com/badge/github.com/ICKelin/opennotr" alt="go report">
   </a>

@@ -4,3 +4,5 @@ bin
 *.prof
 *.pprof
 *.svg
+*.txt
+*.out
