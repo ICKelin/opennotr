@@ -16,26 +16,18 @@ type writeReq struct {
 }
 
 type Client struct {
-	srv    string
-	key    string
-	domain string
-	http   int
-	https  int
-	grpc   int
-	tcps   map[int]int
-	udps   map[int]int
+	srv      string
+	key      string
+	domain   string
+	forwards []proto.ForwardItem
 }
 
 func NewClient(cfg *Config) *Client {
 	return &Client{
-		srv:    cfg.ServerAddr,
-		key:    cfg.Key,
-		domain: cfg.Domain,
-		http:   cfg.HTTP,
-		https:  cfg.HTTPS,
-		grpc:   cfg.Grpc,
-		tcps:   cfg.TCPs,
-		udps:   cfg.UDPs,
+		srv:      cfg.ServerAddr,
+		key:      cfg.Key,
+		domain:   cfg.Domain,
+		forwards: cfg.Forwards,
 	}
 }
 
@@ -49,13 +41,9 @@ func (c *Client) Run() {
 		}
 
 		c2sauth := &proto.C2SAuth{
-			Key:    c.key,
-			Domain: c.domain,
-			HTTP:   c.http,
-			HTTPS:  c.https,
-			Grpc:   c.grpc,
-			TCPs:   c.tcps,
-			UDPs:   c.udps,
+			Key:     c.key,
+			Domain:  c.domain,
+			Forward: c.forwards,
 		}
 
 		err = proto.WriteJSON(conn, proto.CmdAuth, c2sauth)

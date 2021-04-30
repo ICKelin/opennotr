@@ -1,10 +1,23 @@
 serverAddr: "demo.notr.tech:10100"
 key: "client server exchange key"
 domain: "cloud.dahuizong.com"
-http: 8080
-https: 8080
-grpc: 50052
-tcp:
-  2222: 22
-udp:
-  53: 53
+forwards:
+  - protocol: tcp
+    ports:
+      2222: 22
+  
+  - protocol: udp
+    ports:
+      53: 53
+  
+  - protocol: http
+    ports:
+      0: 8080
+  
+  - protocol: https
+    ports:
+      0: 8081
+  
+  - protocol: h2c
+    ports:
+      0: 50052

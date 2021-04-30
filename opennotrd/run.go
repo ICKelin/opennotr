@@ -1,25 +1,21 @@
-package core
+package opennotrd
 
 import (
 	"flag"
 	"fmt"
 	"log"
 
+	"github.com/ICKelin/opennotr/opennotrd/core"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
 	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
-
-	// plugin import
-	_ "github.com/ICKelin/opennotr/opennotrd/plugin/restyproxy"
-	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
-	_ "github.com/ICKelin/opennotr/opennotrd/plugin/udpproxy"
 )
 
 func Run() {
 	confpath := flag.String("conf", "", "config file path")
 	flag.Parse()
 
-	cfg, err := ParseConfig(*confpath)
+	cfg, err := core.ParseConfig(*confpath)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -29,6 +25,7 @@ func Run() {
 	logs.Info("config: %v", cfg)
 
 	// initial tun device
+	// tun device create vpn tunnel between opennotrd and opennotr clients.
 	dev, err := device.New()
 	if err != nil {
 		fmt.Println(err)
@@ -50,20 +47,25 @@ func Run() {
 
 	// create dhcp manager
 	// dhcp Select/Release ip for opennotr client
-	dhcp, err := NewDHCP(cfg.DHCPConfig.Cidr)
+	dhcp, err := core.NewDHCP(cfg.DHCPConfig.Cidr)
 	if err != nil {
 		logs.Error("new dhcp module fail: %v", err)
 		return
 	}
 
-	plugin.Setup(cfg.Plugins)
+	// setup all plugin base on plugin json configuration
+	err = plugin.Setup(cfg.Plugins)
+	if err != nil {
+		logs.Error("setup plugin fail: %v", err)
+		return
+	}
 
 	// initial resolver
 	// currently resolver use coredns and etcd
 	// our resolver just write DOMAIN => VIP record to etcd
-	var resolver *Resolver
+	var resolver *core.Resolver
 	if len(cfg.ResolverConfig.EtcdEndpoints) > 0 {
-		resolver, err = NewResolve(cfg.ResolverConfig.EtcdEndpoints)
+		resolver, err = core.NewResolve(cfg.ResolverConfig.EtcdEndpoints)
 		if err != nil {
 			log.Println(err)
 			return
@@ -72,6 +74,6 @@ func Run() {
 
 	// run tunnel tcp server, it will cause tcp over tcp problems
 	// it may changed to udp later.
-	s := NewServer(cfg.ServerConfig, dhcp, dev, resolver)
+	s := core.NewServer(cfg.ServerConfig, dhcp, dev, resolver)
 	fmt.Println(s.ListenAndServe())
 }

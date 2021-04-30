@@ -4,18 +4,15 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
+	"github.com/ICKelin/opennotr/pkg/proto"
 	"gopkg.in/yaml.v2"
 )
 
 type Config struct {
-	ServerAddr string      `yaml:"serverAddr"`
-	Key        string      `yaml:"key"`
-	Domain     string      `yaml:"domain"`
-	HTTP       int         `yaml:"http"`
-	HTTPS      int         `yaml:"https"`
-	Grpc       int         `yaml:"grpc"`
-	TCPs       map[int]int `yaml:"tcp"`
-	UDPs       map[int]int `yaml:"udp"`
+	ServerAddr string              `yaml:"serverAddr"`
+	Key        string              `yaml:"key"`
+	Domain     string              `yaml:"domain"`
+	Forwards   []proto.ForwardItem `yaml:"forwards"`
 }
 
 func ParseConfig(path string) (*Config, error) {

@@ -1,7 +1,7 @@
 package main
 
-import "github.com/ICKelin/opennotr/opennotrd/core"
+import "github.com/ICKelin/opennotr/opennotrd"
 
 func main() {
-	core.Run()
+	opennotrd.Run()
 }
