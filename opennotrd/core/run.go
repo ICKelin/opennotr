@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"flag"
@@ -9,13 +9,13 @@ import (
 	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
 
-	// plugin import to register
+	// plugin import
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/restyproxy"
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/udpproxy"
 )
 
-func main() {
+func Run() {
 	confpath := flag.String("conf", "", "config file path")
 	flag.Parse()
 
