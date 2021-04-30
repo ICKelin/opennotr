@@ -20,18 +20,19 @@
 
 ## 介绍
 
-opennotr是一款开源的内网穿透软件，opennotr基于VPN技术构建虚拟局域网，虚拟局域网网关通过虚拟局域网IP可以访问到客户端，进而实现内网穿透。
+**状态: 开发中**
+
+opennotr是一款开源的内网穿透软件，opennotr基于VPN技术构建虚拟局域网，虚拟局域网网关通过虚拟局域网IP可以访问客户端，进而实现内网穿透。
 
 opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实现http，https，grpc协议端口复用，opennotr引入了openresty作为网关，从而多个客户端不同域名可以共享http的80，https的443端口，不需要额外的端口。
 
 opennotr支持定制化插件，我们内置了http, https, grpc, tcp, udp代理，可以覆盖大部分场景，同时，opennotr允许自己开发协议插件，比如说，如果您希望使用apisix来作为前置的网关，您可以开发opennotr的apisix插件，opennotr会把一些基本信息传递给插件，其余功能均由插件自己进行。
 
-事实上，opennotr支持的几种协议也是以插件的形式存在的，只是默认导入到程序当中。
-
-**Status: 开发中**
+opennotr支持的几种协议也是以插件的形式存在的，只是默认导入到程序当中。
 
 ## 目录
 - [介绍](#介绍)
+- [功能特性](#功能特性)
 - [opennotr的技术原理](#opennotr的技术原理)
 - [如何开始使用](#如何开始使用)
     - [安装opennotrd](#安装opennotrd)
@@ -40,6 +41,13 @@ opennotr支持定制化插件，我们内置了http, https, grpc, tcp, udp代理
 - [插件开发](#插件开发)
 - [有问题怎么办](#有问题怎么办)
 - [关于作者](#关于作者)
+
+## 功能特性
+
+- 支持多种协议，可覆盖大部分内网穿透场景
+- 支持定制化插件，可以开发自己的插件，让程序运行在VPN环境当中
+- 引入openresty作为网关，网络处理性能问题可以得到保证
+- 支持动态域名解析，可支持引入coredns作为dns的nameserver。
 
 ## opennotr的技术原理
 
@@ -163,20 +171,6 @@ tcp:
 
 [返回目录](#目录)
 
-### 相关文章和视频
-
-- [opennotr基本用法](https://www.zhihu.com/zvideo/1348958178885963776)
-- [opennotr进阶-使用域名](https://www.zhihu.com/zvideo/1357007720181293056)
-
-## 有问题怎么办
-
-- [查看文档](https://github.com/ICKelin/opennotr/tree/develop/doc)
-- [提交issue](https://github.com/ICKelin/opennotr/issues)
-- [查看源码](https://github.com/ICKelin/opennotr)
-- [联系作者交流解决](#关于作者)
-
-
-[返回目录](#目录)
 
 ## 插件开发
 要开发opennotr支持的插件，您需要实现以下接口:
@@ -205,16 +199,43 @@ type ProxyItem struct {
 
 `RunProxy`和`StopProxy`也是由我们插件管理程序调用的，需要由开发者自己实现。
 
-实现以上三个接口之后，需要在程序当中导入您的插件所在的包，比如我们支持的三个插件
+实现以上三个接口之后，需要在插件当中调用注册函数，将插件注册到系统当中，比如:
+
+```golang
+func init() {
+	plugin.RegisterProxier("tcp", &TCPProxy{})
+}
+
+type TCPProxy struct{}
+```
+
+最后，需要在`opennotrd/plugins.go`当中导入您的插件所在的包，比如我们支持的三个插件
 
 ```golang
 import (
-	// plugin import to register
+	// plugin import
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/restyproxy"
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/udpproxy"
 )
 ```
+
+示例插件可参考[tcpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/tcpproxy/tcpproxy.go)
+
+[返回目录](#目录)
+
+### 相关文章和视频
+
+- [opennotr基本用法](https://www.zhihu.com/zvideo/1348958178885963776)
+- [opennotr进阶-使用域名](https://www.zhihu.com/zvideo/1357007720181293056)
+
+## 有问题怎么办
+
+- [查看文档](https://github.com/ICKelin/opennotr/tree/develop/doc)
+- [提交issue](https://github.com/ICKelin/opennotr/issues)
+- [查看源码](https://github.com/ICKelin/opennotr)
+- [联系作者交流解决](#关于作者)
+
 
 [返回目录](#目录)
 
