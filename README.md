@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.jpg" width="100%"/>
+  <img src="doc/assets/logo.jpg" width="100%"/>
 </p>
 
 
@@ -54,7 +54,7 @@ opennotr支持的几种协议也是以插件的形式存在的，只是默认导
 
 ## opennotr的技术原理
 
-![opennotr.jpg](opennotr.jpg)
+![doc/assets/opennotr.jpg](opennotr.jpg)
 
 最下层是客户端所在的机器/设备，同时也作为虚拟局域网当中的一台机器，具备该局域网的IP地址`100.64.240.100`
 
@@ -64,8 +64,8 @@ opennotr支持的几种协议也是以插件的形式存在的，只是默认导
 
 针对tcp和udp，opennotr倒是没有使用openresty的功能，而是自己开发的代理程序，当前也是集成在opennotrd程序当中，具体可参考以下两个文件。
 
-- [tcpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/tcpproxy.go)
-- [udpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/udpproxy.go)
+- [tcpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/tcpproxy/tcpproxy.go
+- [udpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/udpproxy/udpproxy.go)
 
 不使用openresty处理tcp和udp主要基于以下考虑：
 
@@ -174,6 +174,11 @@ tcp:
 
 [返回目录](#目录)
 
+### 相关文章和视频
+
+- [opennotr基本用法](https://www.zhihu.com/zvideo/1348958178885963776)
+- [opennotr进阶-使用域名](https://www.zhihu.com/zvideo/1357007720181293056)
+
 
 ## 插件开发
 要开发opennotr支持的插件，您需要实现以下接口:
@@ -227,14 +232,9 @@ import (
 
 [返回目录](#目录)
 
-### 相关文章和视频
-
-- [opennotr基本用法](https://www.zhihu.com/zvideo/1348958178885963776)
-- [opennotr进阶-使用域名](https://www.zhihu.com/zvideo/1357007720181293056)
-
 ## 有问题怎么办
 
-- [查看文档](https://github.com/ICKelin/opennotr/tree/develop/doc)
+- [查看文档](https://github.com/ICKelin/opennotr/tree/master/doc)
 - [提交issue](https://github.com/ICKelin/opennotr/issues)
 - [查看源码](https://github.com/ICKelin/opennotr)
 - [联系作者交流解决](#关于作者)
