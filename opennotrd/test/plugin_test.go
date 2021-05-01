@@ -85,32 +85,3 @@ func TestTCPEcho128B(t *testing.T) {
 	bufsize := 1024
 	runEcho(t, bufsize, numconn)
 }
-
-func TestTCPEcho256B(t *testing.T) {
-	numconn := 256
-	bufsize := 1024
-	runEcho(t, bufsize, numconn)
-}
-func TestTCPEcho512B(t *testing.T) {
-	numconn := 512
-	bufsize := 1024
-	runEcho(t, bufsize, numconn)
-}
-
-func TestTCPEcho1K(t *testing.T) {
-	numconn := 1024
-	bufsize := 1024
-	runEcho(t, bufsize, numconn)
-}
-
-func TestTCPEcho2K(t *testing.T) {
-	numconn := 1024 * 2
-	bufsize := 1024
-	runEcho(t, bufsize, numconn)
-}
-
-func TestUDPPProxy(t *testing.T) {}
-
-func BenchmarkTCPProxy(t *testing.B) {}
-
-func BenchmarkUDPProxy(t *testing.B) {}
