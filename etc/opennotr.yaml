@@ -4,7 +4,7 @@ domain: "cloud.dahuizong.com"
 forwards:
   - protocol: tcp
     ports:
-      2222: 22
+      2222: 2222
   
   - protocol: udp
     ports:

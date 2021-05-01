@@ -25,9 +25,9 @@
 
 **状态: 开发中**
 
-opennotr是一款开源的内网穿透软件，opennotr基于VPN技术构建虚拟局域网，虚拟局域网网关通过虚拟局域网IP可以访问客户端，进而实现内网穿透。
+opennotr是一款开源的内网穿透软件，基于VPN技术构建虚拟局域网，处于虚拟局域网内的机器都可以通过虚拟局域网IP可以访问客户端，进而实现内网穿透。
 
-opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实现http，https，grpc协议端口复用，opennotr引入了openresty作为网关，从而多个客户端不同域名可以共享http的80，https的443端口，不需要额外的端口。
+opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实现http，https，grpc协议端口复用，opennotr引入了openresty作为网关，多个客户端不同域名可以共享http的80，https的443端口，不需要额外的端口。
 
 opennotr支持定制化插件，我们内置了http, https, grpc, tcp, udp代理，可以覆盖大部分场景，同时，opennotr允许自己开发协议插件，比如说，如果您希望使用apisix来作为前置的网关，您可以开发opennotr的apisix插件，opennotr会把一些基本信息传递给插件，其余功能均由插件自己进行。
 

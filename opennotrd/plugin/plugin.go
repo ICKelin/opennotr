@@ -13,12 +13,33 @@ var pluginMgr = &PluginManager{
 	plugins: make(map[string]IPlugin),
 }
 
+// PluginMeta defineds data that the plugins needs
+// these members are filled by server.go
 type PluginMeta struct {
-	Protocol      string
-	From          string
-	To            string
-	Domain        string
-	Ctx           interface{} // data pass to plugin
+	// plugin register protocol
+	// eg: tcp, udp, http, http2, h2c
+	Protocol string
+
+	// From specific local listener address of plugin
+	// browser or other clients will connect to this address
+	// it's no use for restyproxy plugin.
+	From string
+
+	// To specific VIP:port of our VPN peer node.
+	// For example:
+	// our VPN virtual lan cidr is 100.64.100.1/24
+	// the connected VPN client's VPN lan ip is 100.64.100.10/24
+	// and it wants to export 8080 as http port, so the $To is
+	// 100.64.100.10:8080
+	To string
+
+	// Domain specific the domain of our VPN peer node.
+	// It could be empty
+	Domain string
+
+	// Data you want to passto plugin
+	// Reserve
+	Ctx           interface{}
 	RecycleSignal chan struct{}
 }
 
@@ -26,10 +47,17 @@ func (item *PluginMeta) identify() string {
 	return fmt.Sprintf("%s:%s:%s", item.Protocol, item.From, item.Domain)
 }
 
-// IPlugin defines proxy plugin API
+// IPlugin defines plugin interface
+// Plugin should implements the IPlugin
 type IPlugin interface {
+	// Setup calls at the begin of plugin system initialize
+	// plugin system will pass the raw message to plugin's Setup function
 	Setup(json.RawMessage) error
+
+	// Close a proxy, it may be called by client's connection close
 	StopProxy(item *PluginMeta)
+
+	// Run a proxy, it may be called by client's connection established
 	RunProxy(item *PluginMeta) error
 }
 
