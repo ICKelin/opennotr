@@ -23,7 +23,7 @@ type PluginMeta struct {
 }
 
 func (item *PluginMeta) identify() string {
-	return fmt.Sprintf("%s:%s:%s:%s", item.Protocol, item.From, item.To, item.Domain)
+	return fmt.Sprintf("%s:%s:%s", item.Protocol, item.From, item.Domain)
 }
 
 // IPlugin defines proxy plugin API

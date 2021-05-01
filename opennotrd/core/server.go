@@ -118,7 +118,6 @@ func (s *Server) onConn(conn net.Conn) {
 	vip, err := s.dhcp.SelectIP()
 	if err != nil {
 		logs.Error("dhcp select ip fail: %v", err)
-		// todo reply fail
 		return
 	}
 
@@ -165,7 +164,11 @@ func (s *Server) onConn(conn net.Conn) {
 				RecycleSignal: make(chan struct{}),
 			}
 
-			s.pluginMgr.AddProxy(item)
+			err := s.pluginMgr.AddProxy(item)
+			if err != nil {
+				logs.Error("add proxy fail: %v", err)
+				return
+			}
 			defer s.pluginMgr.DelProxy(item)
 		}
 	}
