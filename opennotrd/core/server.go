@@ -1,43 +1,41 @@
 package core
 
 import (
-	"context"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
-	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
+	"github.com/hashicorp/yamux"
 )
 
 type Session struct {
-	conn       net.Conn
+	conn       *yamux.Session
 	clientAddr string
-	activePing int32
-	hbbuf      chan struct{}
-	writebuf   chan []byte
-	readbuf    chan []byte
+	rxbytes    uint64
+	txbytes    uint64
 }
 
-func newSession(conn net.Conn, clientAddr string) *Session {
+func newSession(conn *yamux.Session, clientAddr string) *Session {
 	return &Session{
 		conn:       conn,
 		clientAddr: clientAddr,
-		activePing: 0,
-		hbbuf:      make(chan struct{}),
-		writebuf:   make(chan []byte),
-		readbuf:    make(chan []byte),
 	}
 }
 
 type Server struct {
+	cfg      ServerConfig
 	addr     string
 	authKey  string
 	domain   string
@@ -48,9 +46,6 @@ type Server struct {
 
 	// call stream proxy for dynamic add/del tcp/udp proxy
 	pluginMgr *plugin.PluginManager
-
-	// tun device wraper
-	dev *device.Device
 
 	// resolver writes domains to etcd and it will be used by coredns
 	resolver *Resolver
@@ -63,16 +58,15 @@ type Server struct {
 
 func NewServer(cfg ServerConfig,
 	dhcp *DHCP,
-	dev *device.Device,
 	resolver *Resolver) *Server {
 	return &Server{
+		cfg:       cfg,
 		addr:      cfg.ListenAddr,
 		authKey:   cfg.AuthKey,
 		domain:    cfg.Domain,
 		publicIP:  publicIP(),
 		dhcp:      dhcp,
 		pluginMgr: plugin.DefaultPluginManager(),
-		dev:       dev,
 		resolver:  resolver,
 	}
 }
@@ -83,7 +77,8 @@ func (s *Server) ListenAndServe() error {
 		return err
 	}
 
-	go s.readIface()
+	go s.tproxyTCP(s.cfg.TCPProxyListen)
+	go s.tproxyUDP(s.cfg.UDPProxyListen)
 
 	for {
 		conn, err := listener.Accept()
@@ -125,7 +120,6 @@ func (s *Server) onConn(conn net.Conn) {
 		Vip:     vip,
 		Gateway: s.dhcp.GetCIDR(),
 		Domain:  auth.Domain,
-		// todo: add proxy item
 	}
 
 	err = proto.WriteJSON(conn, proto.CmdAuth, reply)
@@ -173,124 +167,129 @@ func (s *Server) onConn(conn net.Conn) {
 		}
 	}
 
+	mux, err := yamux.Server(conn, nil)
+	if err != nil {
+		logs.Error("yamux server fail:%v", err)
+		return
+	}
+
 	// tunnel session
-	sess := newSession(conn, conn.RemoteAddr().String())
+	sess := newSession(mux, conn.RemoteAddr().String())
 	s.sess.Store(vip, sess)
 	defer s.sess.Delete(vip)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	finread := make(chan struct{})
-
-	go s.reader(ctx, sess, finread)
-	go s.writer(ctx, sess)
-	s.heartbeat(ctx, sess, finread)
-}
-
-// reader reads from session
-// once error occurs, close finread channel to stop heartbeat
-func (s *Server) reader(ctx context.Context, sess *Session, finread chan struct{}) {
-	defer close(finread)
-
+	rttInterval := time.NewTicker(time.Second * 10)
 	for {
 		select {
-		case <-ctx.Done():
+		case <-mux.CloseChan():
+			logs.Info("session %v close", sess.conn.RemoteAddr().String())
 			return
-		default:
+		case <-rttInterval.C:
+			rx := atomic.SwapUint64(&sess.rxbytes, 0)
+			tx := atomic.SwapUint64(&sess.txbytes, 0)
+			rtt, _ := mux.Ping()
+			logs.Debug("session %s rtt %d, rx %d tx %d",
+				sess.conn.RemoteAddr().String(), rtt.Milliseconds(), rx, tx)
 		}
+	}
+}
 
-		sess.conn.SetReadDeadline(time.Now().Add(time.Second * 30))
-		hdr, body, err := proto.Read(sess.conn)
-		sess.conn.SetReadDeadline(time.Time{})
+func (s *Server) tproxyTCP(listenAddr string) error {
+	listener, err := net.Listen("tcp", listenAddr)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+
+	// set socket with ip transparent option
+	file, err := listener.(*net.TCPListener).File()
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_IP, syscall.IP_TRANSPARENT, 1)
+	if err != nil {
+		return err
+	}
+
+	for {
+		conn, err := listener.Accept()
 		if err != nil {
-			logs.Error("read fail: %v", err)
+			logs.Error("accept fail: %v", err)
 			break
 		}
 
-		switch hdr.Cmd() {
-		case proto.CmdHeartbeat:
-			atomic.AddInt32(&sess.activePing, -1)
-
-		case proto.CmdData:
-			s.dev.Write(body)
-
-		default:
-			logs.Error("unsupported cmd: %d %v", hdr.Cmd(), body)
-		}
+		go s.tcpProxy(conn)
 	}
+
+	return nil
 }
 
-// writer writes data,heartbeat to session
-func (s *Server) writer(ctx context.Context, sess *Session) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
+func (s *Server) tcpProxy(conn net.Conn) {
+	dip, dport, _ := net.SplitHostPort(conn.LocalAddr().String())
+	sip, sport, _ := net.SplitHostPort(conn.RemoteAddr().String())
 
-		case <-sess.hbbuf:
-			sess.conn.SetWriteDeadline(time.Now().Add(time.Second * 10))
-			proto.Write(sess.conn, proto.CmdHeartbeat, nil)
-			sess.conn.SetWriteDeadline(time.Time{})
-
-		case frame := <-sess.writebuf:
-			sess.conn.SetWriteDeadline(time.Now().Add(time.Second * 10))
-			proto.Write(sess.conn, proto.CmdData, frame)
-			sess.conn.SetWriteDeadline(time.Time{})
-		}
+	val, ok := s.sess.Load(dip)
+	if !ok {
+		logs.Error("no route to host: %s", dip)
+		conn.Close()
+		return
 	}
+
+	stream, err := val.(*Session).conn.OpenStream()
+	if err != nil {
+		logs.Error("open stream fail: %v", err)
+		conn.Close()
+		return
+	}
+
+	buf := make([]byte, 2)
+
+	//  write proxy protocol packet
+	proxyProtocol := &proto.ProxyProtocol{
+		Protocol: "tcp",
+		SrcIP:    sip,
+		SrcPort:  sport,
+		// DstIP:    dip,
+		DstIP:   "127.0.0.1", // may change to client setting
+		DstPort: dport,
+	}
+
+	body, err := json.Marshal(proxyProtocol)
+	if err != nil {
+		logs.Error("json marshal fail: %v", err)
+		conn.Close()
+		stream.Close()
+		return
+	}
+
+	binary.BigEndian.PutUint16(buf, uint16(len(body)))
+	buf = append(buf, body...)
+	stream.SetWriteDeadline(time.Now().Add(time.Second * 10))
+	_, err = stream.Write(buf)
+	stream.SetWriteDeadline(time.Time{})
+	if err != nil {
+		logs.Error("stream write fail: %v", err)
+		conn.Close()
+		stream.Close()
+		return
+	}
+
+	go func() {
+		defer stream.Close()
+		defer conn.Close()
+		io.Copy(stream, conn)
+	}()
+
+	go func() {
+		defer stream.Close()
+		defer conn.Close()
+		io.Copy(conn, stream)
+	}()
 }
 
-// heartbeat sends heartbeat packet to client and incr activePing by one
-func (s *Server) heartbeat(ctx context.Context, sess *Session, finread chan struct{}) {
-	tick := time.NewTicker(time.Second * 10)
-	defer tick.Stop()
-
-	for range tick.C {
-		select {
-		case <-finread:
-			return
-		default:
-		}
-
-		if atomic.LoadInt32(&sess.activePing) >= 3 {
-			logs.Error("server ping timeout")
-			break
-		}
-
-		sess.hbbuf <- struct{}{}
-		atomic.AddInt32(&sess.activePing, 1)
-	}
-}
-
-// readIface
-func (s *Server) readIface() {
-	for {
-		pkt, err := s.dev.Read()
-		if err != nil {
-			logs.Error("read device fail: %v", err)
-			break
-		}
-
-		v4Pkt := Packet(pkt)
-
-		if v4Pkt.Version() != 4 {
-			logs.Warn("not support ip version %d", v4Pkt.Version())
-			continue
-		}
-
-		obj, ok := s.sess.Load(v4Pkt.Dst())
-		if !ok {
-			logs.Warn("vip %s not found %v", v4Pkt.Dst())
-			continue
-		}
-
-		select {
-		case obj.(*Session).writebuf <- pkt:
-		default:
-		}
-	}
-}
+func (s *Server) tproxyUDP(listenAddr string) {}
 
 // randomDomain generate random domain for client
 func randomDomain(num int64) string {

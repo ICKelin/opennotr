@@ -23,7 +23,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.0.1-0.20190118093823-f849b5445de4 // indirect
 	github.com/grpc-ecosystem/go-grpc-prometheus v1.2.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.9.5 // indirect
-	github.com/inetaf/tcpproxy v0.0.0-20200125044825-b6bb9b5b8252
+	github.com/hashicorp/yamux v0.0.0-20210316155119-a95892c5f864
 	github.com/jonboulle/clockwork v0.1.0 // indirect
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/siddontang/go v0.0.0-20170517070808-cb568a3e5cc0

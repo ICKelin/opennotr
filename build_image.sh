@@ -1,6 +1,5 @@
 #!/bin/bash
-WORKSPACE=`pwd`
-cd opennotrd && go build -o ../docker-build/opennotrd 
+./build_exec.sh
 
 cd $WORKSPACE/docker-build
 docker build . -t opennotr

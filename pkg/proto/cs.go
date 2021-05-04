@@ -36,6 +36,14 @@ type S2CAuth struct {
 	Gateway string `json:"gateway"` // 网关地址(cidr)
 }
 
+type ProxyProtocol struct {
+	Protocol string `json:"protocol"`
+	SrcIP    string `json:"sip"`
+	SrcPort  string `json:"sport"`
+	DstIP    string `json:"dip"`
+	DstPort  string `json:"dport"`
+}
+
 // 1字节版本
 // 1字节命令
 // 2字节长度

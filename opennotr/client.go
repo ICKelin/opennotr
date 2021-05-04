@@ -1,19 +1,17 @@
 package main
 
 import (
-	"context"
+	"encoding/binary"
+	"encoding/json"
+	"fmt"
+	"io"
 	"log"
 	"net"
 	"time"
 
-	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/proto"
+	"github.com/hashicorp/yamux"
 )
-
-type writeReq struct {
-	cmd  int
-	data []byte
-}
 
 type Client struct {
 	srv      string
@@ -65,99 +63,80 @@ func (c *Client) Run() {
 		log.Println("vhost:", auth.Vip)
 		log.Println("domain:", auth.Domain)
 
-		writebuf := make(chan *writeReq)
-
-		dev, err := device.New()
+		mux, err := yamux.Client(conn, nil)
 		if err != nil {
 			log.Println(err)
-			return
+			time.Sleep(time.Second * 3)
+			continue
 		}
 
-		err = dev.SetIP(auth.Gateway, auth.Vip)
-		if err != nil {
-			log.Println(err)
-			return
+		for {
+			stream, err := mux.AcceptStream()
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
+			go c.handleStream(stream)
 		}
-
-		err = dev.SetRoute(auth.Gateway, auth.Vip)
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		go c.readDev(dev, writebuf)
-
-		ctx, cancel := context.WithCancel(context.Background())
-		go c.writer(ctx, conn, writebuf)
-		c.reader(dev, conn, writebuf)
-		cancel()
-		dev.Close()
 
 		log.Println("reconnecting")
 		time.Sleep(time.Second * 3)
 	}
 }
 
-func (c *Client) reader(dev *device.Device, conn net.Conn, writeBuf chan *writeReq) {
-	defer conn.Close()
+func (c *Client) handleStream(stream *yamux.Stream) {
+	lenbuf := make([]byte, 2)
+	_, err := stream.Read(lenbuf)
+	if err != nil {
+		log.Println(err)
+		stream.Close()
+		return
+	}
 
-	for {
-		hdr, body, err := proto.Read(conn)
-		if err != nil {
-			log.Println(err)
-			break
-		}
+	bodylen := binary.BigEndian.Uint16(lenbuf)
+	buf := make([]byte, bodylen)
+	nr, err := io.ReadFull(stream, buf)
+	if err != nil {
+		log.Println(err)
+		stream.Close()
+		return
+	}
 
-		switch hdr.Cmd() {
-		case proto.CmdHeartbeat:
-			proto.Write(conn, proto.CmdHeartbeat, nil)
+	proxyProtocol := proto.ProxyProtocol{}
+	err = json.Unmarshal(buf[:nr], &proxyProtocol)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 
-		case proto.CmdData:
-			dev.Write(body)
-
-		case proto.CmdAuth:
-			log.Println("authorize return: ", string(body))
-
-		default:
-		}
+	switch proxyProtocol.Protocol {
+	case "tcp":
+		c.tcpProxy(stream, &proxyProtocol)
+	case "udp":
+		c.udpProxy(stream, &proxyProtocol)
 	}
 }
 
-func (c *Client) writer(ctx context.Context, conn net.Conn, writeBuf chan *writeReq) {
-	defer conn.Close()
-
-	for {
-		select {
-		case msg := <-writeBuf:
-			err := proto.Write(conn, msg.cmd, msg.data)
-			if err != nil {
-				log.Println("write fail: ", err)
-				return
-			}
-
-		case <-ctx.Done():
-			log.Println("close writer")
-			return
-		}
+func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
+	addr := fmt.Sprintf("%s:%s", p.DstIP, p.DstPort)
+	remoteConn, err := net.DialTimeout("tcp", addr, time.Second*10)
+	if err != nil {
+		log.Println(err)
+		return
 	}
+
+	go func() {
+		defer remoteConn.Close()
+		defer stream.Close()
+		io.Copy(remoteConn, stream)
+	}()
+
+	go func() {
+		defer remoteConn.Close()
+		defer stream.Close()
+		io.Copy(stream, remoteConn)
+	}()
 }
 
-func (c *Client) readDev(dev *device.Device, writeBuf chan *writeReq) {
-	for {
-		bytes, err := dev.Read()
-		if err != nil {
-			log.Println("read device fail: ", err)
-			break
-		}
-
-		req := &writeReq{
-			cmd:  proto.CmdData,
-			data: bytes,
-		}
-
-		select {
-		case writeBuf <- req:
-		default:
-		}
-	}
-}
+func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {}

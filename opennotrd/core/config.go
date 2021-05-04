@@ -15,9 +15,11 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	ListenAddr string `yaml:"listen"`
-	AuthKey    string `yaml:"authKey"`
-	Domain     string `yaml:"domain"`
+	ListenAddr     string `yaml:"listen"`
+	AuthKey        string `yaml:"authKey"`
+	Domain         string `yaml:"domain"`
+	TCPProxyListen string `yaml:"tcplisten"`
+	UDPProxyListen string `yaml:"udplisten"`
 }
 
 type DHCPConfig struct {

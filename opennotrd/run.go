@@ -7,7 +7,6 @@ import (
 
 	"github.com/ICKelin/opennotr/opennotrd/core"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
-	"github.com/ICKelin/opennotr/pkg/device"
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
@@ -23,27 +22,6 @@ func Run() {
 
 	logs.Init("opennotrd.log", "debug", 10)
 	logs.Info("config: %v", cfg)
-
-	// initial tun device
-	// tun device create vpn tunnel between opennotrd and opennotr clients.
-	dev, err := device.New()
-	if err != nil {
-		fmt.Println(err)
-		return
-	}
-	defer dev.Close()
-
-	err = dev.SetIP(cfg.DHCPConfig.Cidr, cfg.DHCPConfig.Cidr)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-
-	err = dev.SetRoute(cfg.DHCPConfig.Cidr, cfg.DHCPConfig.IP)
-	if err != nil {
-		log.Println(err)
-		return
-	}
 
 	// create dhcp manager
 	// dhcp Select/Release ip for opennotr client
@@ -74,6 +52,6 @@ func Run() {
 
 	// run tunnel tcp server, it will cause tcp over tcp problems
 	// it may changed to udp later.
-	s := core.NewServer(cfg.ServerConfig, dhcp, dev, resolver)
+	s := core.NewServer(cfg.ServerConfig, dhcp, resolver)
 	fmt.Println(s.ListenAndServe())
 }
