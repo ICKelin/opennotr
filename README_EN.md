@@ -11,7 +11,7 @@ opennotr provides http, https, grpc, tcp and udp nat traversal. For http, https,
 
 The technical architecture of opennotr
 
-![doc/assets/opennotr.jpg](opennotr.jpg)
+![opennotr](doc/assets/opennotr.jpg)
 
 Table of Contents
 =================

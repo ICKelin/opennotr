@@ -54,7 +54,7 @@ opennotr内置的协议也是以插件的形式存在的，只是默认导入到
 
 ## opennotr的技术原理
 
-![doc/assets/opennotr.jpg](opennotr.jpg)
+![opennotr.jpg](doc/assets/opennotr.jpg)
 
 最下层是客户端所在的机器/设备，同时也作为虚拟局域网当中的一台机器，具备该局域网的IP地址`100.64.240.100`
 
