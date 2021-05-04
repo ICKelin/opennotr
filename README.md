@@ -23,7 +23,7 @@
 
 ## 介绍
 
-**状态: 开发中**
+**状态: Alpha**
 
 opennotr是一款开源的内网穿透软件，基于VPN技术构建虚拟局域网，处于虚拟局域网内的机器都可以通过虚拟局域网IP可以访问客户端，进而实现内网穿透。
 
@@ -31,7 +31,7 @@ opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实�
 
 opennotr支持定制化插件，我们内置了http, https, grpc, tcp, udp代理，可以覆盖大部分场景，同时，opennotr允许自己开发协议插件，比如说，如果您希望使用apisix来作为前置的网关，您可以开发opennotr的apisix插件，opennotr会把一些基本信息传递给插件，其余功能均由插件自己进行。
 
-opennotr支持的几种协议也是以插件的形式存在的，只是默认导入到程序当中。
+opennotr内置的协议也是以插件的形式存在的，只是默认导入到程序当中。
 
 ## 目录
 - [介绍](#介绍)
@@ -48,7 +48,7 @@ opennotr支持的几种协议也是以插件的形式存在的，只是默认导
 ## 功能特性
 
 - 支持多种协议，可覆盖大部分内网穿透场景
-- 支持定制化插件，可以开发自己的插件，让程序运行在VPN环境当中
+- 支持定制化插件，opennotr提供一个虚拟局域网的基础功能，您开发的插件运行在这个局域网内
 - 引入openresty作为网关，网络处理性能问题可以得到保证
 - 支持动态域名解析，可支持引入coredns作为dns的nameserver。
 
@@ -64,7 +64,7 @@ opennotr支持的几种协议也是以插件的形式存在的，只是默认导
 
 针对tcp和udp，opennotr倒是没有使用openresty的功能，而是自己开发的代理程序，当前也是集成在opennotrd程序当中，具体可参考以下两个文件。
 
-- [tcpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/tcpproxy/tcpproxy.go
+- [tcpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/tcpproxy/tcpproxy.go)
 - [udpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/udpproxy/udpproxy.go)
 
 不使用openresty处理tcp和udp主要基于以下考虑：
@@ -103,24 +103,45 @@ root@iZwz97kfjnf78copv1ae65Z:/opt/data/opennotrd# tree
 这里主要关注`notrd.yaml`文件的内容，该文件是opennotrd运行时的配置文件.
 
 ```
-root@iZwz97kfjnf78copv1ae65Z:/opt/data/opennotrd# cat notrd.yaml
 server:
-  # server监听的tcp地址
   listen: ":10100"
-  # 认证key，每个客户端都需要配置该key
   authKey: "client server exchange key"
-  # 使用的域名，如果有动态域名解析，会生成改域名的子域名
   domain: "open.notr.tech"
 
-# VPN虚拟局域网IP网段信息
 dhcp:
   cidr: "100.64.242.1/24"
   ip: "100.64.242.1"
 
-# openresty 动态upstream管理接口，通常不需要改变。
-upstream:
-  remoteAddr: "http://127.0.0.1:81/upstreams"
+plugin:
+  tcp: |
+    {
+      "PortMin": 10000,
+      "PortMax": 20000
+    }
+
+  udp: |
+    {
+      "PortMin": 20000,
+      "PortMax": 30000
+    }
+
+  http: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
+
+  https: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
+
+  h2c: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
 ```
+
+大部分情况下，上述配置只需要调整`server`区块相关配置，其他保留默认即可。
 
 准备好配置之后运行以下命令即可开始启动:
 
@@ -146,25 +167,33 @@ docker-compose up -d opennotrd
 opennotr的启动比较简单，首先需要准备配置.
 
 ```
-pi@raspberrypi:~ $ cat /opt/opennotr/config.yaml
-# opennotrd的公网ip和端口
 serverAddr: "demo.notr.tech:10100"
-
-# opennotrd服务启动时配置文件的authKey字段
 key: "client server exchange key"
-
-# 使用的域名
 domain: "cloud.dahuizong.com"
 
-# http端口信息
-http: 8080
-https: 8080
-grpc: 50052
-
-# tcp端口信息
-# 外网端口: 本机监听端口
-tcp:
-  2222: 22
+# 转发表信息
+# ports字段解析: 公网端口: 本机监听的端口
+forwards:
+  - protocol: tcp
+    ports:
+      2222: 2222
+  
+  - protocol: udp
+    ports:
+      53: 53
+  
+  - protocol: http
+    ports:
+      0: 8080
+  
+  - protocol: https
+    ports:
+      0: 8081
+  
+  - protocol: h2c
+    ports:
+      0: 50052
+      
 ```
 
 配置准备好之后，启动opennotr即可
@@ -184,21 +213,19 @@ tcp:
 要开发opennotr支持的插件，您需要实现以下接口:
 
 ```golang
-// Proxier defines stream proxy API
-type Proxier interface {
+
+// IPlugin defines plugin interface
+// Plugin should implements the IPlugin
+type IPlugin interface {
+	// Setup calls at the begin of plugin system initialize
+	// plugin system will pass the raw message to plugin's Setup function
 	Setup(json.RawMessage) error
-	StopProxy(item *ProxyItem)
-	RunProxy(item *ProxyItem) error
-}
 
+	// Close a proxy, it may be called by client's connection close
+	StopProxy(item *PluginMeta)
 
-type ProxyItem struct {
-	Protocol      string
-	From          string
-	To            string
-	Domain        string
-	Ctx           interface{} // data pass to proxier
-	RecycleSignal chan struct{}
+	// Run a proxy, it may be called by client's connection established
+	RunProxy(item *PluginMeta) error
 }
 
 ```
@@ -210,21 +237,37 @@ type ProxyItem struct {
 实现以上三个接口之后，需要在插件当中调用注册函数，将插件注册到系统当中，比如:
 
 ```golang
+package tcpproxy
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
+)
+
 func init() {
-	plugin.RegisterProxier("tcp", &TCPProxy{})
+	plugin.Register("tcp", &TCPProxy{})
 }
 
 type TCPProxy struct{}
+
+func (t *TCPProxy) Setup(config json.RawMessage) error { return nil }
+
+func (t *TCPProxy) StopProxy(item *plugin.PluginMeta) {}
+
+func (t *TCPProxy) RunProxy(item *plugin.PluginMeta) error {
+	return fmt.Errorf("TODO://")
+}
+
 ```
 
-最后，需要在`opennotrd/plugins.go`当中导入您的插件所在的包，比如我们支持的三个插件
+最后，需要在`opennotrd/plugins.go`当中导入您的插件所在的包。
 
 ```golang
 import (
 	// plugin import
-	_ "github.com/ICKelin/opennotr/opennotrd/plugin/restyproxy"
 	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
-	_ "github.com/ICKelin/opennotr/opennotrd/plugin/udpproxy"
 )
 ```
 

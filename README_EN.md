@@ -29,7 +29,7 @@ opennotr provides these features:
 - Supports multi protocol, http, https, grpc, tcp, udp.
 - Multi client shares the same http, https, grpc port, for example: client A use `a.notr.tech` domain, client B use `b.notr.tech`, they can both use 80 port for http. Opennotr use openresty for dynamic upstream.
 - Dynamic dns support, opennotr use coredns and etcd for dynamic dns.
-- Support stream proxy plugin
+- Support plugin
 
 [Back to TOC](#table-of-contents)
 
@@ -74,8 +74,7 @@ root@iZwz97kfjnf78copv1ae65Z:/opt/data/opennotrd# tree
 
 the cert folder MUST be created and the crt and key file MUST created too.
 
-```
-root@iZwz97kfjnf78copv1ae65Z:/opt/data/opennotrd# cat notrd.yaml
+```yml
 server:
   listen: ":10100"
   authKey: "client server exchange key"
@@ -85,8 +84,33 @@ dhcp:
   cidr: "100.64.242.1/24"
   ip: "100.64.242.1"
 
-upstream:
-  remoteAddr: "http://127.0.0.1:81/upstreams"
+plugin:
+  tcp: |
+    {
+      "PortMin": 10000,
+      "PortMax": 20000
+    }
+
+  udp: |
+    {
+      "PortMin": 20000,
+      "PortMax": 30000
+    }
+
+  http: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
+
+  https: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
+
+  h2c: |
+    {
+      "adminUrl": "http://127.0.0.1:81/upstreams"
+    }
 ```
 
 the only one configuration item you should change is `domain: "open.notr.tech"`, replace `open.notr.tech` with your own domain.
@@ -104,24 +128,98 @@ wget https://github.com/ICKelin/opennotr/blob/develop/docker-build/docker-compos
 docker-compose up -d opennotrd
 ```
 
+**Run opennotr client**
+
+prepare config file`config.yaml`
+```yaml
+serverAddr: "demo.notr.tech:10100"
+key: "client server exchange key"
+domain: "cloud.dahuizong.com"
+
+# forward table
+forwards:
+  - protocol: tcp
+    ports:
+      # public port: local port
+      2222: 2222
+  
+  - protocol: udp
+    ports:
+      53: 53
+  
+  - protocol: http
+    ports:
+      0: 8080
+  
+  - protocol: https
+    ports:
+      0: 8081
+  
+  - protocol: h2c
+    ports:
+      0: 50052
+      
+```
+
+and then you can run the opennotr client using `./opennotr -conf config.yaml` command
+
 [Back to TOC](#table-of-contents)
 
 Plugin
 =======
 opennotr provide plugin interface for developer, Yes, tcp and udp are buildin plugins. 
 
-For a new plugin, you should implement the Proxier interface which contains RunProxy method.
+For a new plugin, you should implement the IPlugin interface which contains RunProxy method.
 
-```
-type Proxier interface {
-	RunProxy(item *ProxyItem) error
+```golang
+// IPlugin defines plugin interface
+// Plugin should implements the IPlugin
+type IPlugin interface {
+	// Setup calls at the begin of plugin system initialize
+	// plugin system will pass the raw message to plugin's Setup function
+	Setup(json.RawMessage) error
+
+	// Close a proxy, it may be called by client's connection close
+	StopProxy(item *PluginMeta)
+
+	// Run a proxy, it may be called by client's connection established
+	RunProxy(item *PluginMeta) error
 }
 ```
 
-And then import the plugin pakcage in main.go
+And then implement the interface
 
+```golang
+package tcpproxy
+
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/ICKelin/opennotr/opennotrd/plugin"
+)
+
+func init() {
+	plugin.Register("tcp", &TCPProxy{})
+}
+
+type TCPProxy struct{}
+
+func (t *TCPProxy) Setup(config json.RawMessage) error { return nil }
+
+func (t *TCPProxy) StopProxy(item *plugin.PluginMeta) {}
+
+func (t *TCPProxy) RunProxy(item *plugin.PluginMeta) error {
+	return fmt.Errorf("TODO://")
+}
 ```
-import _ "path to you plugin package"
+
+and then import the plugin package
+```golang
+import (
+	// plugin import
+	_ "github.com/ICKelin/opennotr/opennotrd/plugin/tcpproxy"
+)
 ```
 
 Technology details
