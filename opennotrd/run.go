@@ -50,8 +50,12 @@ func Run() {
 		}
 	}
 
-	// run tunnel tcp server, it will cause tcp over tcp problems
-	// it may changed to udp later.
+	// up local tcp,udp service
+	// we use tproxy to route traffic to the tcp port and udp port here.
+	go core.NewTCPForward().ListenAndServe(cfg.ServerConfig.TCPForwardListen)
+	go core.NewUDPForward().ListenAndServe(cfg.ServerConfig.UDPForwardListen)
+
+	// server provides tcp server for opennotr client
 	s := core.NewServer(cfg.ServerConfig, dhcp, resolver)
 	fmt.Println(s.ListenAndServe())
 }

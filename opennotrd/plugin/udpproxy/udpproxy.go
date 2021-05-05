@@ -96,7 +96,6 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 				break
 			}
 
-			logs.Debug("create new udp connection to %s", item.To)
 			backendConn, err := net.DialUDP("udp", nil, backendAddr)
 			if err != nil {
 				logs.Error("dial udp fail: %v", err)
@@ -111,7 +110,6 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 		val, _ = sess.Load(key)
 		// read from $from address and write to $to address
 		val.(*net.UDPConn).Write(buf[:nr])
-		logs.Debug("write to backend %d bytes", nr)
 	}
 }
 
@@ -125,7 +123,6 @@ func (p *UDPProxy) udpCopy(dst, src *net.UDPConn, toaddr *net.UDPAddr) {
 			break
 		}
 
-		logs.Debug("write back to client %d bytes", nr)
 		_, err = dst.WriteToUDP(buf[:nr], toaddr)
 		if err != nil {
 			logs.Error("write to udp fail: %v", err)

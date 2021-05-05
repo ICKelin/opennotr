@@ -1,9 +1,14 @@
 package core
 
 import (
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"net"
 	"syscall"
+
+	"github.com/ICKelin/opennotr/pkg/logs"
+	"github.com/ICKelin/opennotr/pkg/proto"
 )
 
 func checksum_add(buf []byte, seed uint32) uint32 {
@@ -19,7 +24,7 @@ func checksum_add(buf []byte, seed uint32) uint32 {
 	return sum
 }
 
-func checksum_warp(seed uint32) uint16 {
+func checksum_wrap(seed uint32) uint16 {
 	sum := seed
 	for sum > 0xffff {
 		sum = (sum >> 16) + (sum & 0xffff)
@@ -34,7 +39,7 @@ func checksum_warp(seed uint32) uint16 {
 }
 
 func CheckSum(buf []byte) uint16 {
-	return checksum_warp(checksum_add(buf, 0))
+	return checksum_wrap(checksum_add(buf, 0))
 }
 
 func sendUDPViaRaw(fd int, src, dst *net.UDPAddr, payload []byte) error {
@@ -56,7 +61,7 @@ func sendUDPViaRaw(fd int, src, dst *net.UDPAddr, payload []byte) error {
 	data[25] = byte(ulen)
 	copy(data[28:], payload)
 
-	uc := checksum_warp(checksum_add(data, uint32(ulen)))
+	uc := checksum_wrap(checksum_add(data, uint32(ulen)))
 	data[26] = byte(uc >> 8)
 	data[27] = byte(uc)
 
@@ -72,4 +77,29 @@ func sendUDPViaRaw(fd int, src, dst *net.UDPAddr, payload []byte) error {
 	addr := syscall.SockaddrInet4{Port: dst.Port}
 	copy(addr.Addr[:], data[16:20])
 	return syscall.Sendto(fd, data, 0, &addr)
+}
+
+func encode(raw []byte) []byte {
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(len(raw)))
+	buf = append(buf, raw...)
+	return buf
+}
+
+func encodeProxyProtocol(protocol, sip, sport, dip, dport string) []byte {
+	proxyProtocol := &proto.ProxyProtocol{
+		Protocol: protocol,
+		SrcIP:    sip,
+		SrcPort:  sport,
+		DstIP:    dip,
+		DstPort:  dport,
+	}
+
+	body, err := json.Marshal(proxyProtocol)
+	if err != nil {
+		logs.Error("json marshal fail: %v", err)
+	}
+
+	bytes := encode(body)
+	return bytes
 }

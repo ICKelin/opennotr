@@ -9,7 +9,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
 	"github.com/hashicorp/yamux"
 )
@@ -163,14 +162,14 @@ func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 		for {
 			_, err := io.ReadFull(stream, hdr)
 			if err != nil {
-				logs.Error("read stream fail %v", err)
+				log.Println("read stream fail: ", err)
 				break
 			}
 			nlen := binary.BigEndian.Uint16(hdr)
 			buf := make([]byte, nlen)
 			_, err = io.ReadFull(stream, buf)
 			if err != nil {
-				logs.Error("read stream body fail: %v", err)
+				log.Println("read stream body fail: ", err)
 				break
 			}
 
