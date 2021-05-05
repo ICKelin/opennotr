@@ -2,10 +2,9 @@
 [![Build Status](https://travis-ci.org/ICKelin/opennotr.svg?branch=master)](https://travis-ci.org/ICKelin/opennotr)
 [![Go Report Card](https://goreportcard.com/badge/github.com/ICKelin/opennotr)](https://goreportcard.com/report/github.com/ICKelin/opennotr)
 
-opennotr is a nat tranversal application base on a VPN tunnel and openresty.
+opennotr is a nat tranversal application base on `tproxy` and openresty.
 
 opennotr provides http, https, grpc, tcp and udp nat traversal. For http, https, grpc, opennotr supports multi client share the 80/443 ports, it maybe useful for wechat, facebook webhook debug.
-
 
 **Status: Work in progress**
 
@@ -79,6 +78,8 @@ server:
   listen: ":10100"
   authKey: "client server exchange key"
   domain: "open.notr.tech"
+  tcplisten: ":4398"
+  udplisten: ":4399"
 
 dhcp:
   cidr: "100.64.242.1/24"

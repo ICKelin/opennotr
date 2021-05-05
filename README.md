@@ -25,7 +25,7 @@
 
 **状态: 开发中**
 
-opennotr是一款开源的内网穿透软件，基于VPN技术构建虚拟局域网，处于虚拟局域网内的机器都可以通过虚拟局域网IP可以访问客户端，进而实现内网穿透。
+opennotr是一款开源的内网穿透软件，内部使用`透明代理`实现流量劫持，同时，基于虚拟IP构建虚拟局域网，整体技术与k8s的service技术类似，虚拟IP与service ip类似，只在opennotr的服务端所在的机器可以访问，在其他任何位置都无法访问该虚拟ip。
 
 opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实现http，https，grpc协议端口复用，opennotr引入了openresty作为网关，多个客户端不同域名可以共享http的80，https的443端口，不需要额外的端口。
 
@@ -58,7 +58,9 @@ opennotr内置的协议也是以插件的形式存在的，只是默认导入到
 
 最下层是客户端所在的机器/设备，同时也作为虚拟局域网当中的一台机器，具备该局域网的IP地址`100.64.240.100`
 
-最上层是服务端所在的机器，同时也作为虚拟局域网当中的网关，具备该局域网的IP地址`100.64.240.1`，opennotr提供能够在`Public Cloud`层可通过`100.64.240.100`访问`Device/PC behind Routed`的能力。在这个能力的基础之上构建整个内网穿透体系,。
+最上层是服务端所在的机器，同时也作为虚拟局域网当中的网关，具备该局域网的IP地址`100.64.240.1`，opennotr提供能够在`Public Cloud`层可通过`100.64.240.100`访问`Device/PC behind Routed`的能力。在这个能力的基础之上构建整个内网穿透体系。
+
+上图中的虚拟IP不存在任何网卡，只是内部虚拟出来的一个ip，便于流量劫持，opennotr通过透明代理，将访问虚拟ip的流量转到本机监听的端口，然后查找该虚拟ip对应的客户端长连接，将流量通过长连接下发到客户端，从而实现穿透。
 
 为了实现http，引入了openresty作为反向代理服务器(其实最初是使用的nginx reload)，upstream的地址是`100.64.240.100`，从openresty的层面来看，并不关注内网地址和外网地址，只要能通就行，从上面我们知道opennotr底层就是构建一个VPN隧道，因此能通。
 
@@ -102,11 +104,13 @@ root@iZwz97kfjnf78copv1ae65Z:/opt/data/opennotrd# tree
 
 这里主要关注`notrd.yaml`文件的内容，该文件是opennotrd运行时的配置文件.
 
-```
+```yml
 server:
   listen: ":10100"
   authKey: "client server exchange key"
   domain: "open.notr.tech"
+  tcplisten: ":4398"
+  udplisten: ":4399"
 
 dhcp:
   cidr: "100.64.242.1/24"
