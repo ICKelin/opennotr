@@ -9,6 +9,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
 	"github.com/hashicorp/yamux"
 )
@@ -106,7 +107,7 @@ func (c *Client) handleStream(stream *yamux.Stream) {
 	proxyProtocol := proto.ProxyProtocol{}
 	err = json.Unmarshal(buf[:nr], &proxyProtocol)
 	if err != nil {
-		log.Println(err)
+		log.Println("unmarshal fail: ", err)
 		return
 	}
 
@@ -123,6 +124,7 @@ func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 	remoteConn, err := net.DialTimeout("tcp", addr, time.Second*10)
 	if err != nil {
 		log.Println(err)
+		stream.Close()
 		return
 	}
 
@@ -139,4 +141,67 @@ func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 	}()
 }
 
-func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {}
+func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
+	addr := fmt.Sprintf("%s:%s", p.DstIP, p.DstPort)
+	raddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		log.Println(err)
+		stream.Close()
+		return
+	}
+
+	remoteConn, err := net.DialUDP("udp", nil, raddr)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	go func() {
+		defer remoteConn.Close()
+		defer stream.Close()
+		hdr := make([]byte, 2)
+		for {
+			_, err := io.ReadFull(stream, hdr)
+			if err != nil {
+				logs.Error("read stream fail %v", err)
+				break
+			}
+			nlen := binary.BigEndian.Uint16(hdr)
+			buf := make([]byte, nlen)
+			_, err = io.ReadFull(stream, buf)
+			if err != nil {
+				logs.Error("read stream body fail: %v", err)
+				break
+			}
+
+			remoteConn.Write(buf)
+		}
+	}()
+
+	go func() {
+		defer remoteConn.Close()
+		defer stream.Close()
+		buf := make([]byte, 64*1024)
+		for {
+			nr, err := remoteConn.Read(buf)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+
+			bytes := encode(buf[:nr])
+			_, err = stream.Write(bytes)
+			if err != nil {
+				log.Println(err)
+				break
+			}
+		}
+	}()
+}
+
+func encode(raw []byte) []byte {
+	buf := make([]byte, 2)
+	binary.BigEndian.PutUint16(buf, uint16(len(raw)))
+	buf = append(buf, raw...)
+	return buf
+}
