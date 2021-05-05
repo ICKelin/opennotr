@@ -25,15 +25,23 @@ type C2SAuth struct {
 }
 
 type ForwardItem struct {
-	Protocol string      `json:"protocol"` // forward protocol
-	Ports    map[int]int `json:"ports"`    // forward to local ports
-	// ... add other item to controller forward
+	// forward protocol. eg: tcp, udp, https, http
+	Protocol string `json:"protocol"`
+
+	// forward ports
+	// key is the port opennotrd listen
+	// value is local port
+	Ports map[int]string `json:"ports"`
+
+	// local ip, default is 127.0.0.1
+	// the traffic will be forward to $LocalIP:$LocalPort
+	// for example: 127.0.0.1:8080. 192.168.31.65:8080
+	LocalIP string `json:"localIP"`
 }
 
 type S2CAuth struct {
-	Domain  string `json:"domain"`  // 分配域名
-	Vip     string `json:"vip"`     // 分配虚拟ip地址
-	Gateway string `json:"gateway"` // 网关地址(cidr)
+	Domain string `json:"domain"` // 分配域名
+	Vip    string `json:"vip"`    // 分配虚拟ip地址
 }
 
 type ProxyProtocol struct {

@@ -3,6 +3,7 @@ package core
 import (
 	"io"
 	"net"
+	"sync"
 	"syscall"
 	"time"
 
@@ -69,7 +70,9 @@ func (f *TCPForward) forwardTCP(conn net.Conn) {
 		return
 	}
 
-	bytes := encodeProxyProtocol("tcp", sip, sport, "127.0.0.1", dport)
+	// todo rewrite to client configuration
+	targetIP := "127.0.0.1"
+	bytes := encodeProxyProtocol("tcp", sip, sport, targetIP, dport)
 	stream.SetWriteDeadline(time.Now().Add(time.Second * 10))
 	_, err = stream.Write(bytes)
 	stream.SetWriteDeadline(time.Time{})
@@ -80,15 +83,22 @@ func (f *TCPForward) forwardTCP(conn net.Conn) {
 		return
 	}
 
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	defer wg.Wait()
 	go func() {
+		defer wg.Done()
 		defer stream.Close()
 		defer conn.Close()
-		io.Copy(stream, conn)
+		buf := make([]byte, 4096)
+		io.CopyBuffer(stream, conn, buf)
 	}()
 
-	go func() {
-		defer stream.Close()
-		defer conn.Close()
-		io.Copy(conn, stream)
-	}()
+	// todo: optimize mem alloc
+	// one session will cause 4KB + 4KB buffer for io copy
+	// and two goroutine 4KB mem used
+	buf := make([]byte, 4096)
+	io.CopyBuffer(conn, stream, buf)
+	stream.Close()
+	conn.Close()
 }

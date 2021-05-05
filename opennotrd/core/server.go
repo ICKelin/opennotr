@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
@@ -84,7 +83,7 @@ func (s *Server) onConn(conn net.Conn) {
 		return
 	}
 
-	// it client without domain
+	// if client without domain
 	// generate random domain base on time nano
 	if len(auth.Domain) <= 0 {
 		auth.Domain = fmt.Sprintf("%s.%s", randomDomain(time.Now().UnixNano()), s.domain)
@@ -100,9 +99,8 @@ func (s *Server) onConn(conn net.Conn) {
 	}
 
 	reply := &proto.S2CAuth{
-		Vip:     vip,
-		Gateway: s.dhcp.GetCIDR(),
-		Domain:  auth.Domain,
+		Vip:    vip,
+		Domain: auth.Domain,
 	}
 
 	err = proto.WriteJSON(conn, proto.CmdAuth, reply)
@@ -125,23 +123,23 @@ func (s *Server) onConn(conn net.Conn) {
 	logs.Info("select domain: %s", auth.Domain)
 
 	// create forward
-	// $localPort => vip:$upstreamPort
+	// $publicPort => vip:$localPort
 	// 1. for from address, we listen 0.0.0.0:$inport
 	// from member is not used for restyproxy
 	// 2. for to address, we use $vip:$upstreamPort
 	// the vip is the virtual lan ip address
 	// Domain is only use for restyproxy
 	for _, forward := range auth.Forward {
-		for localPort, upstreamPort := range forward.Ports {
+		for publicPort, localPort := range forward.Ports {
 			item := &plugin.PluginMeta{
 				Protocol:      forward.Protocol,
-				From:          fmt.Sprintf("0.0.0.0:%d", localPort),
-				To:            fmt.Sprintf("%s:%d", vip, upstreamPort),
+				From:          fmt.Sprintf("0.0.0.0:%d", publicPort),
+				To:            fmt.Sprintf("%s:%s", vip, localPort),
 				Domain:        auth.Domain,
 				RecycleSignal: make(chan struct{}),
 			}
 
-			err := s.pluginMgr.AddProxy(item)
+			err = s.pluginMgr.AddProxy(item)
 			if err != nil {
 				logs.Error("add proxy fail: %v", err)
 				return
@@ -156,7 +154,7 @@ func (s *Server) onConn(conn net.Conn) {
 		return
 	}
 
-	sess := newSession(mux, conn.RemoteAddr().String())
+	sess := newSession(mux, vip)
 	s.sessMgr.AddSession(vip, sess)
 	defer s.sessMgr.DeleteSession(vip)
 
@@ -168,10 +166,10 @@ func (s *Server) onConn(conn net.Conn) {
 			return
 
 		case <-rttInterval.C:
-			rx := atomic.SwapUint64(&sess.rxbytes, 0)
-			tx := atomic.SwapUint64(&sess.txbytes, 0)
+			rx := sess.ResetRx()
+			tx := sess.ResetTx()
 			rtt, _ := mux.Ping()
-			logs.Debug("session %s rtt %d, rx %d tx %d",
+			logs.Debug("session %s rtt %dms, rx %d tx %d",
 				sess.conn.RemoteAddr().String(), rtt.Milliseconds(), rx, tx)
 		}
 	}

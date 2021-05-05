@@ -1,7 +1,6 @@
 package core
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -9,7 +8,6 @@ import (
 	"sync"
 	"syscall"
 	"time"
-	"unsafe"
 
 	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/hashicorp/yamux"
@@ -88,7 +86,7 @@ func (f *UDPForward) ListenAndServe(listenAddr string) error {
 
 		origindst, err := getOriginDst(oob[:oobn])
 		if err != nil {
-			logs.Error("%v", err)
+			logs.Error("get origin dst fail: %v", err)
 			continue
 		}
 
@@ -111,7 +109,8 @@ func (f *UDPForward) ListenAndServe(listenAddr string) error {
 			}
 			streams.Store(key, stream)
 
-			bytes := encodeProxyProtocol("udp", sip, sport, "127.0.0.1", dport)
+			targetIP := "127.0.0.1"
+			bytes := encodeProxyProtocol("udp", sip, sport, targetIP, dport)
 			stream.SetWriteDeadline(time.Now().Add(time.Second * 10))
 			_, err = stream.Write(bytes)
 			stream.SetWriteDeadline(time.Time{})
@@ -119,13 +118,13 @@ func (f *UDPForward) ListenAndServe(listenAddr string) error {
 				logs.Error("stream write fail: %v", err)
 				continue
 			}
-			go f.forwardUDP(stream, rawfd, origindst, raddr)
-		}
 
-		val, ok = streams.Load(key)
-		if !ok {
-			logs.Error("get stream for %s fail", key)
-			continue
+			go f.forwardUDP(stream, rawfd, origindst, raddr)
+			val, ok = streams.Load(key)
+			if !ok {
+				logs.Error("get stream for %s fail", key)
+				continue
+			}
 		}
 
 		stream := val.(*yamux.Stream)
@@ -162,40 +161,4 @@ func (f *UDPForward) forwardUDP(stream *yamux.Stream, tofd int, fromaddr, toaddr
 			logs.Error("send via raw socket fail: %v", err)
 		}
 	}
-}
-
-func getOriginDst(hdr []byte) (*net.UDPAddr, error) {
-	msgs, err := syscall.ParseSocketControlMessage(hdr)
-	if err != nil {
-		return nil, err
-	}
-
-	var origindst *net.UDPAddr
-	for _, msg := range msgs {
-		if msg.Header.Level == syscall.SOL_IP &&
-			msg.Header.Type == syscall.IP_RECVORIGDSTADDR {
-			originDstRaw := &syscall.RawSockaddrInet4{}
-			err := binary.Read(bytes.NewReader(msg.Data), binary.LittleEndian, originDstRaw)
-			if err != nil {
-				logs.Error("read origin dst fail: %v", err)
-				continue
-			}
-
-			// only support for ipv4
-			if originDstRaw.Family == syscall.AF_INET {
-				pp := (*syscall.RawSockaddrInet4)(unsafe.Pointer(originDstRaw))
-				p := (*[2]byte)(unsafe.Pointer(&pp.Port))
-				origindst = &net.UDPAddr{
-					IP:   net.IPv4(pp.Addr[0], pp.Addr[1], pp.Addr[2], pp.Addr[3]),
-					Port: int(p[0])<<8 + int(p[1]),
-				}
-			}
-		}
-	}
-
-	if origindst == nil {
-		return nil, fmt.Errorf("get origin dst fail")
-	}
-
-	return origindst, nil
 }

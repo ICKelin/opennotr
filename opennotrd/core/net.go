@@ -1,17 +1,19 @@
 package core
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
 	"syscall"
+	"unsafe"
 
 	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
 )
 
-func checksum_add(buf []byte, seed uint32) uint32 {
+func checksumAdd(buf []byte, seed uint32) uint32 {
 	sum := seed
 	for i, l := 0, len(buf); i < l; i += 2 {
 		j := i + 1
@@ -24,7 +26,7 @@ func checksum_add(buf []byte, seed uint32) uint32 {
 	return sum
 }
 
-func checksum_wrap(seed uint32) uint16 {
+func checksumWrapper(seed uint32) uint16 {
 	sum := seed
 	for sum > 0xffff {
 		sum = (sum >> 16) + (sum & 0xffff)
@@ -39,7 +41,7 @@ func checksum_wrap(seed uint32) uint16 {
 }
 
 func CheckSum(buf []byte) uint16 {
-	return checksum_wrap(checksum_add(buf, 0))
+	return checksumWrapper(checksumAdd(buf, 0))
 }
 
 func sendUDPViaRaw(fd int, src, dst *net.UDPAddr, payload []byte) error {
@@ -61,7 +63,7 @@ func sendUDPViaRaw(fd int, src, dst *net.UDPAddr, payload []byte) error {
 	data[25] = byte(ulen)
 	copy(data[28:], payload)
 
-	uc := checksum_wrap(checksum_add(data, uint32(ulen)))
+	uc := checksumWrapper(checksumAdd(data, uint32(ulen)))
 	data[26] = byte(uc >> 8)
 	data[27] = byte(uc)
 
@@ -95,11 +97,42 @@ func encodeProxyProtocol(protocol, sip, sport, dip, dport string) []byte {
 		DstPort:  dport,
 	}
 
-	body, err := json.Marshal(proxyProtocol)
+	body, _ := json.Marshal(proxyProtocol)
+	return encode(body)
+}
+
+func getOriginDst(hdr []byte) (*net.UDPAddr, error) {
+	msgs, err := syscall.ParseSocketControlMessage(hdr)
 	if err != nil {
-		logs.Error("json marshal fail: %v", err)
+		return nil, err
 	}
 
-	bytes := encode(body)
-	return bytes
+	var origindst *net.UDPAddr
+	for _, msg := range msgs {
+		if msg.Header.Level == syscall.SOL_IP &&
+			msg.Header.Type == syscall.IP_RECVORIGDSTADDR {
+			originDstRaw := &syscall.RawSockaddrInet4{}
+			err := binary.Read(bytes.NewReader(msg.Data), binary.LittleEndian, originDstRaw)
+			if err != nil {
+				logs.Error("read origin dst fail: %v", err)
+				continue
+			}
+
+			// only support for ipv4
+			if originDstRaw.Family == syscall.AF_INET {
+				pp := (*syscall.RawSockaddrInet4)(unsafe.Pointer(originDstRaw))
+				p := (*[2]byte)(unsafe.Pointer(&pp.Port))
+				origindst = &net.UDPAddr{
+					IP:   net.IPv4(pp.Addr[0], pp.Addr[1], pp.Addr[2], pp.Addr[3]),
+					Port: int(p[0])<<8 + int(p[1]),
+				}
+			}
+		}
+	}
+
+	if origindst == nil {
+		return nil, fmt.Errorf("get origin dst fail")
+	}
+
+	return origindst, nil
 }

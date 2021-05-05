@@ -2,6 +2,7 @@ package core
 
 import (
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/yamux"
 )
@@ -17,17 +18,31 @@ func GetSessionManager() *SessionManager {
 }
 
 type Session struct {
-	conn       *yamux.Session
-	clientAddr string
-	rxbytes    uint64
-	txbytes    uint64
+	conn    *yamux.Session
+	rxbytes uint64
+	txbytes uint64
 }
 
-func newSession(conn *yamux.Session, clientAddr string) *Session {
+func newSession(conn *yamux.Session, vip string) *Session {
 	return &Session{
-		conn:       conn,
-		clientAddr: clientAddr,
+		conn: conn,
 	}
+}
+
+func (s *Session) ResetRx() uint64 {
+	return atomic.SwapUint64(&s.rxbytes, 0)
+}
+
+func (s *Session) ResetTx() uint64 {
+	return atomic.SwapUint64(&s.txbytes, 0)
+}
+
+func (s *Session) IncRx(nb uint64) {
+	atomic.AddUint64(&s.rxbytes, nb)
+}
+
+func (s *Session) IncTx(nb uint64) {
+	atomic.AddUint64(&s.txbytes, nb)
 }
 
 func (mgr *SessionManager) AddSession(vip string, sess *Session) {
