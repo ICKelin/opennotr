@@ -65,6 +65,15 @@ func runBackend(t *testing.T) {
 
 		go func() {
 			defer stream.Close()
+			buf := make([]byte, len("ping\n"))
+			for {
+				nr, err := stream.Read(buf)
+				if err != nil {
+					fmt.Println(err)
+					break
+				}
+				stream.Write(buf[:nr])
+			}
 		}()
 	}
 }
@@ -85,6 +94,7 @@ func runserver(t *testing.T, listener net.Listener) {
 
 			sessMgr := GetSessionManager()
 			sessMgr.AddSession(vip, &Session{conn: sess})
+			t.Log("add session: ", vip)
 		}()
 	}
 }
@@ -134,8 +144,8 @@ func TestTCPForward(t *testing.T) {
 
 	go func() {
 		for i := 0; i < 100; i++ {
-			time.Sleep(time.Second * 1)
 			conn.Write([]byte("ping\n"))
+			time.Sleep(time.Second * 1)
 		}
 	}()
 
