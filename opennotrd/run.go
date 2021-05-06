@@ -3,7 +3,6 @@ package opennotrd
 import (
 	"flag"
 	"fmt"
-	"log"
 
 	"github.com/ICKelin/opennotr/opennotrd/core"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
@@ -45,14 +44,22 @@ func Run() {
 	if len(cfg.ResolverConfig.EtcdEndpoints) > 0 {
 		resolver, err = core.NewResolve(cfg.ResolverConfig.EtcdEndpoints)
 		if err != nil {
-			log.Println(err)
+			logs.Error("new resolve fail: %v", err)
 			return
 		}
 	}
 
 	// up local tcp,udp service
 	// we use tproxy to route traffic to the tcp port and udp port here.
-	go core.NewTCPForward().ListenAndServe(cfg.ServerConfig.TCPForwardListen)
+	tcpfw := core.NewTCPForward()
+	listener, err := tcpfw.Listen(cfg.ServerConfig.TCPForwardListen)
+	if err != nil {
+		logs.Error("listen tproxy tcp fail: %v", err)
+		return
+	}
+
+	go tcpfw.Serve(listener)
+
 	go core.NewUDPForward().ListenAndServe(cfg.ServerConfig.UDPForwardListen)
 
 	// server provides tcp server for opennotr client

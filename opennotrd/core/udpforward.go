@@ -139,6 +139,7 @@ func (f *UDPForward) ListenAndServe(listenAddr string) error {
 	return nil
 }
 
+// forwardUDP reads from stream and write to tofd via rawsocket
 func (f *UDPForward) forwardUDP(stream *yamux.Stream, tofd int, fromaddr, toaddr *net.UDPAddr) {
 	hdr := make([]byte, 2)
 	for {

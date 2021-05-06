@@ -20,25 +20,28 @@ func NewTCPForward() *TCPForward {
 	}
 }
 
-func (f *TCPForward) ListenAndServe(listenAddr string) error {
+func (f *TCPForward) Listen(listenAddr string) (net.Listener, error) {
 	listener, err := net.Listen("tcp", listenAddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer listener.Close()
 
 	// set socket with ip transparent option
 	file, err := listener.(*net.TCPListener).File()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer file.Close()
 
 	err = syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_IP, syscall.IP_TRANSPARENT, 1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	return listener, nil
+}
+
+func (f *TCPForward) Serve(listener net.Listener) error {
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
@@ -53,22 +56,23 @@ func (f *TCPForward) ListenAndServe(listenAddr string) error {
 }
 
 func (f *TCPForward) forwardTCP(conn net.Conn) {
+	defer conn.Close()
+
 	dip, dport, _ := net.SplitHostPort(conn.LocalAddr().String())
 	sip, sport, _ := net.SplitHostPort(conn.RemoteAddr().String())
 
 	sess := f.sessMgr.GetSession(dip)
 	if sess == nil {
 		logs.Error("no route to host: %s", dip)
-		conn.Close()
 		return
 	}
 
 	stream, err := sess.conn.OpenStream()
 	if err != nil {
 		logs.Error("open stream fail: %v", err)
-		conn.Close()
 		return
 	}
+	defer stream.Close()
 
 	// todo rewrite to client configuration
 	targetIP := "127.0.0.1"
@@ -78,14 +82,13 @@ func (f *TCPForward) forwardTCP(conn net.Conn) {
 	stream.SetWriteDeadline(time.Time{})
 	if err != nil {
 		logs.Error("stream write fail: %v", err)
-		conn.Close()
-		stream.Close()
 		return
 	}
 
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
 	defer wg.Wait()
+
 	go func() {
 		defer wg.Done()
 		defer stream.Close()
@@ -99,6 +102,4 @@ func (f *TCPForward) forwardTCP(conn net.Conn) {
 	// and two goroutine 4KB mem used
 	buf := make([]byte, 4096)
 	io.CopyBuffer(conn, stream, buf)
-	stream.Close()
-	conn.Close()
 }
