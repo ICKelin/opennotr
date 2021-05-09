@@ -9,14 +9,17 @@ import (
 
 var sessionMgr = &SessionManager{}
 
+// SessionManager defines the session info add/delete/get actions
 type SessionManager struct {
 	sessions sync.Map
 }
 
+// GetSessionManager returs the singleton of session manager
 func GetSessionManager() *SessionManager {
 	return sessionMgr
 }
 
+// Session defines each opennotr_client to opennotr_server connection
 type Session struct {
 	conn    *yamux.Session
 	rxbytes uint64

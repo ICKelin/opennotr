@@ -23,51 +23,9 @@ var (
 	defaultUDPSessionTimeout = 30
 )
 
-// udpSession defines each client forward stream
-// the purpose of udpSession is to reuse stream
-// tha lastActive members will reset for easch packet in/out
 type udpSession struct {
 	stream     *yamux.Stream
 	lastActive time.Time
-}
-
-type udpSessionManager struct {
-	sessLock    sync.Mutex
-	udpsessions map[string]*udpSession
-}
-
-func newUDPSessionManager() *udpSessionManager {
-	return &udpSessionManager{
-		udpsessions: make(map[string]*udpSession),
-	}
-}
-
-func (mgr *udpSessionManager) Add(key string, val *udpSession) {
-	mgr.sessLock.Lock()
-	defer mgr.sessLock.Unlock()
-	mgr.udpsessions[key] = val
-}
-
-func (mgr *udpSessionManager) Get(key string) *udpSession {
-	mgr.sessLock.Lock()
-	defer mgr.sessLock.Unlock()
-	return mgr.udpsessions[key]
-}
-
-func (mgr *udpSessionManager) Delete(key string) {
-	mgr.sessLock.Lock()
-	defer mgr.sessLock.Unlock()
-	delete(mgr.udpsessions, key)
-}
-
-func (mgr *udpSessionManager) ResetActive(key string, tm time.Time) {
-	mgr.sessLock.Lock()
-	defer mgr.sessLock.Unlock()
-	sess, ok := mgr.udpsessions[key]
-	if !ok {
-		return
-	}
-	sess.lastActive = tm
 }
 
 type UDPForward struct {
@@ -75,8 +33,15 @@ type UDPForward struct {
 	sessionTimeout int
 	readTimeout    time.Duration
 	writeTimeout   time.Duration
-	sessMgr        *SessionManager
-	udpSessionMgr  *udpSessionManager
+
+	// the session manager is the global session manager
+	// it stores opennotr_client to opennotr_server connection
+	sessMgr *SessionManager
+
+	// udpSessions stores each client forward stream
+	// the purpose of udpSession is to reuse stream
+	udpSessions map[string]*udpSession
+	udpsessLock sync.Mutex
 }
 
 func NewUDPForward(cfg UDPForwardConfig) *UDPForward {
@@ -101,7 +66,7 @@ func NewUDPForward(cfg UDPForwardConfig) *UDPForward {
 		writeTimeout:   time.Duration(writeTimeout) * time.Second,
 		sessionTimeout: sessionTimeout,
 		sessMgr:        GetSessionManager(),
-		udpSessionMgr:  newUDPSessionManager(),
+		udpSessions:    make(map[string]*udpSession),
 	}
 }
 
@@ -171,8 +136,14 @@ func (f *UDPForward) ListenAndServe() error {
 		sip, sport, _ := net.SplitHostPort(raddr.String())
 
 		key := fmt.Sprintf("%s:%s:%s:%s", sip, sport, dip, dport)
-		udpsess := f.udpSessionMgr.Get(key)
+
+		f.udpsessLock.Lock()
+		udpsess := f.udpSessions[key]
 		if udpsess != nil {
+			udpsess.lastActive = time.Now()
+			f.udpsessLock.Unlock()
+		} else {
+			f.udpsessLock.Unlock()
 			sess := f.sessMgr.GetSession(dip)
 			if sess == nil {
 				logs.Error("no route to host: %s", dip)
@@ -186,7 +157,10 @@ func (f *UDPForward) ListenAndServe() error {
 			}
 
 			udpsess = &udpSession{stream, time.Now()}
-			f.udpSessionMgr.Add(key, udpsess)
+			f.udpsessLock.Lock()
+			f.udpSessions[key] = udpsess
+			f.udpsessLock.Unlock()
+
 			targetIP := "127.0.0.1"
 			bytes := encodeProxyProtocol("udp", sip, sport, targetIP, dport)
 			stream.SetWriteDeadline(time.Now().Add(f.writeTimeout))
@@ -200,7 +174,6 @@ func (f *UDPForward) ListenAndServe() error {
 			go f.forwardUDP(stream, key, rawfd, origindst, raddr)
 		}
 
-		f.udpSessionMgr.ResetActive(key, time.Now())
 		stream := udpsess.stream
 
 		bytes := encode(buf[:nr])
@@ -217,7 +190,12 @@ func (f *UDPForward) ListenAndServe() error {
 // forwardUDP reads from stream and write to tofd via rawsocket
 func (f *UDPForward) forwardUDP(stream *yamux.Stream, sessionKey string, tofd int, fromaddr, toaddr *net.UDPAddr) {
 	defer stream.Close()
-	defer f.udpSessionMgr.Delete(sessionKey)
+	defer func() {
+		f.udpsessLock.Lock()
+		delete(f.udpSessions, sessionKey)
+		f.udpsessLock.Unlock()
+	}()
+
 	hdr := make([]byte, 2)
 	for {
 		nr, err := stream.Read(hdr)
@@ -246,23 +224,29 @@ func (f *UDPForward) forwardUDP(stream *yamux.Stream, sessionKey string, tofd in
 		if err != nil {
 			logs.Error("send via raw socket fail: %v", err)
 		}
-		f.udpSessionMgr.ResetActive(sessionKey, time.Now())
+
+		f.udpsessLock.Lock()
+		udpsess := f.udpSessions[sessionKey]
+		if udpsess != nil {
+			udpsess.lastActive = time.Now()
+		}
+		f.udpsessLock.Unlock()
 	}
 }
 
 func (f *UDPForward) recyeleSession() {
 	tick := time.NewTicker(time.Second * 5)
 	for range tick.C {
-		total, timeout := len(f.udpSessionMgr.udpsessions), 0
-		f.udpSessionMgr.sessLock.Lock()
-		for k, s := range f.udpSessionMgr.udpsessions {
+		total, timeout := len(f.udpSessions), 0
+		f.udpsessLock.Lock()
+		for k, s := range f.udpSessions {
 			if time.Now().Sub(s.lastActive).Seconds() > float64(f.sessionTimeout) {
 				logs.Warn("remove udp %v session, lastActive: %v", k, s.lastActive)
 				timeout += 1
-				delete(f.udpSessionMgr.udpsessions, k)
+				delete(f.udpSessions, k)
 			}
 		}
-		f.udpSessionMgr.sessLock.Unlock()
+		f.udpsessLock.Unlock()
 		logs.Debug("total %d, timeout %d, left: %d", total, timeout, total-timeout)
 	}
 }
