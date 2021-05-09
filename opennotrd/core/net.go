@@ -1,15 +1,12 @@
 package core
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net"
 	"syscall"
-	"unsafe"
 
-	"github.com/ICKelin/opennotr/pkg/logs"
 	"github.com/ICKelin/opennotr/pkg/proto"
 )
 
@@ -99,40 +96,4 @@ func encodeProxyProtocol(protocol, sip, sport, dip, dport string) []byte {
 
 	body, _ := json.Marshal(proxyProtocol)
 	return encode(body)
-}
-
-func getOriginDst(hdr []byte) (*net.UDPAddr, error) {
-	msgs, err := syscall.ParseSocketControlMessage(hdr)
-	if err != nil {
-		return nil, err
-	}
-
-	var origindst *net.UDPAddr
-	for _, msg := range msgs {
-		if msg.Header.Level == syscall.SOL_IP &&
-			msg.Header.Type == syscall.IP_RECVORIGDSTADDR {
-			originDstRaw := &syscall.RawSockaddrInet4{}
-			err := binary.Read(bytes.NewReader(msg.Data), binary.LittleEndian, originDstRaw)
-			if err != nil {
-				logs.Error("read origin dst fail: %v", err)
-				continue
-			}
-
-			// only support for ipv4
-			if originDstRaw.Family == syscall.AF_INET {
-				pp := (*syscall.RawSockaddrInet4)(unsafe.Pointer(originDstRaw))
-				p := (*[2]byte)(unsafe.Pointer(&pp.Port))
-				origindst = &net.UDPAddr{
-					IP:   net.IPv4(pp.Addr[0], pp.Addr[1], pp.Addr[2], pp.Addr[3]),
-					Port: int(p[0])<<8 + int(p[1]),
-				}
-			}
-		}
-	}
-
-	if origindst == nil {
-		return nil, fmt.Errorf("get origin dst fail")
-	}
-
-	return origindst, nil
 }

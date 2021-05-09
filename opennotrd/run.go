@@ -51,8 +51,8 @@ func Run() {
 
 	// up local tcp,udp service
 	// we use tproxy to route traffic to the tcp port and udp port here.
-	tcpfw := core.NewTCPForward()
-	listener, err := tcpfw.Listen(cfg.ServerConfig.TCPForwardListen)
+	tcpfw := core.NewTCPForward(cfg.TCPForwardConfig)
+	listener, err := tcpfw.Listen()
 	if err != nil {
 		logs.Error("listen tproxy tcp fail: %v", err)
 		return
@@ -60,7 +60,7 @@ func Run() {
 
 	go tcpfw.Serve(listener)
 
-	go core.NewUDPForward().ListenAndServe(cfg.ServerConfig.UDPForwardListen)
+	go core.NewUDPForward(cfg.UDPForwardConfig).ListenAndServe()
 
 	// server provides tcp server for opennotr client
 	s := core.NewServer(cfg.ServerConfig, dhcp, resolver)

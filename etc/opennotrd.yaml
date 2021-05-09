@@ -2,8 +2,12 @@ server:
   listen: ":10100"
   authKey: "client server exchange key"
   domain: "open.notr.tech"
-  tcplisten: ":4398"
-  udplisten: ":4399"
+
+tcpforward:
+  listen: ":4398"
+
+udpforward:
+  listen: ":4399"
 
 dhcp:
   cidr: "100.64.242.1/24"

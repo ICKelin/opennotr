@@ -10,18 +10,43 @@ import (
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
+var (
+	// default tcp timeout(read, write), 10 seconds
+	defaultTCPTimeout = 10
+)
+
 type TCPForward struct {
-	sessMgr *SessionManager
+	listenAddr string
+	// writeTimeout defines the tcp connection write timeout in second
+	// default value set to 10 seconds
+	writeTimeout time.Duration
+
+	// readTimeout defines the tcp connection write timeout in second
+	// default value set to 10 seconds
+	readTimeout time.Duration
+	sessMgr     *SessionManager
 }
 
-func NewTCPForward() *TCPForward {
+func NewTCPForward(cfg TCPForwardConfig) *TCPForward {
+	tcpReadTimeout := cfg.ReadTimeout
+	if tcpReadTimeout <= 0 {
+		tcpReadTimeout = defaultTCPTimeout
+	}
+
+	tcpWriteTimeout := cfg.WriteTimeout
+	if tcpWriteTimeout <= 0 {
+		tcpWriteTimeout = int(defaultTCPTimeout)
+	}
 	return &TCPForward{
-		sessMgr: GetSessionManager(),
+		listenAddr:   cfg.ListenAddr,
+		writeTimeout: time.Duration(tcpWriteTimeout) * time.Second,
+		readTimeout:  time.Duration(tcpReadTimeout) * time.Second,
+		sessMgr:      GetSessionManager(),
 	}
 }
 
-func (f *TCPForward) Listen(listenAddr string) (net.Listener, error) {
-	listener, err := net.Listen("tcp", listenAddr)
+func (f *TCPForward) Listen() (net.Listener, error) {
+	listener, err := net.Listen("tcp", f.listenAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +102,7 @@ func (f *TCPForward) forwardTCP(conn net.Conn) {
 	// todo rewrite to client configuration
 	targetIP := "127.0.0.1"
 	bytes := encodeProxyProtocol("tcp", sip, sport, targetIP, dport)
-	stream.SetWriteDeadline(time.Now().Add(time.Second * 10))
+	stream.SetWriteDeadline(time.Now().Add(f.writeTimeout))
 	_, err = stream.Write(bytes)
 	stream.SetWriteDeadline(time.Time{})
 	if err != nil {

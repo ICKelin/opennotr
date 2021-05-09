@@ -68,7 +68,6 @@ func runBackend() {
 			for {
 				nr, err := stream.Read(buf)
 				if err != nil {
-					fmt.Println("read stream fail:", err)
 					break
 				}
 				stream.Write(buf[:nr])
@@ -115,8 +114,10 @@ func runtproxy(tcpfw *TCPForward, listener net.Listener) {
 
 func TestTCPForward(t *testing.T) {
 	// listen tproxy
-	tcpfw := NewTCPForward()
-	listener, err := tcpfw.Listen(tproxyAddr)
+	tcpfw := NewTCPForward(TCPForwardConfig{
+		ListenAddr: tproxyAddr,
+	})
+	listener, err := tcpfw.Listen()
 	if err != nil {
 		t.Error(err)
 		return
@@ -164,8 +165,10 @@ func TestTCPForward(t *testing.T) {
 
 func benchmark(t *testing.B, nconn int) {
 	// listen tproxy
-	tcpfw := NewTCPForward()
-	listener, err := tcpfw.Listen(tproxyAddr)
+	tcpfw := NewTCPForward(TCPForwardConfig{
+		ListenAddr: tproxyAddr,
+	})
+	listener, err := tcpfw.Listen()
 	if err != nil {
 		t.Error(err)
 		return
@@ -225,4 +228,12 @@ func Benchmark4K(b *testing.B) {
 
 func Benchmark8K(b *testing.B) {
 	benchmark(b, 1024*8)
+}
+
+func Benchmark10K(b *testing.B) {
+	benchmark(b, 1024*10)
+}
+
+func Benchmark14K(b *testing.B) {
+	benchmark(b, 1024*14)
 }
