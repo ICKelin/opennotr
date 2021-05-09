@@ -60,7 +60,13 @@ func Run() {
 
 	go tcpfw.Serve(listener)
 
-	go core.NewUDPForward(cfg.UDPForwardConfig).ListenAndServe()
+	udpfw := core.NewUDPForward(cfg.UDPForwardConfig)
+	lconn, err := udpfw.Listen()
+	if err != nil {
+		logs.Error("listen tproxy udp fail: %v", err)
+		return
+	}
+	go udpfw.Serve(lconn)
 
 	// server provides tcp server for opennotr client
 	s := core.NewServer(cfg.ServerConfig, dhcp, resolver)

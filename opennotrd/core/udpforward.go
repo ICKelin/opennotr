@@ -33,6 +33,7 @@ type UDPForward struct {
 	sessionTimeout int
 	readTimeout    time.Duration
 	writeTimeout   time.Duration
+	rawfd          int
 
 	// the session manager is the global session manager
 	// it stores opennotr_client to opennotr_server connection
@@ -70,34 +71,39 @@ func NewUDPForward(cfg UDPForwardConfig) *UDPForward {
 	}
 }
 
-func (f *UDPForward) ListenAndServe() error {
+// Listen listens a udp port, since that we use tproxy to
+// redirect traffic to this listened udp port
+// so the socket should set to ip transparent option
+func (f *UDPForward) Listen() (*net.UDPConn, error) {
 	laddr, err := net.ResolveUDPAddr("udp", f.listenAddr)
 	if err != nil {
 		logs.Error("resolve udp fail: %v", err)
-		return err
+		return nil, err
 	}
 
 	lconn, err := net.ListenUDP("udp", laddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// set socket with ip transparent option
 	file, err := lconn.File()
 	if err != nil {
-		return err
+		lconn.Close()
+		return nil, err
 	}
 	defer file.Close()
 
 	err = syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_IP, syscall.IP_TRANSPARENT, 1)
 	if err != nil {
-		return err
+		lconn.Close()
+		return nil, err
 	}
 
 	// set socket with recv origin dst option
 	err = syscall.SetsockoptInt(int(file.Fd()), syscall.SOL_IP, syscall.IP_RECVORIGDSTADDR, 1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// create raw socket fd
@@ -105,15 +111,20 @@ func (f *UDPForward) ListenAndServe() error {
 	rawfd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_RAW, syscall.IPPROTO_RAW)
 	if err != nil || rawfd < 0 {
 		logs.Error("call socket fail: %v", err)
-		return err
+		return nil, err
 	}
 	defer syscall.Close(rawfd)
 
 	err = syscall.SetsockoptInt(rawfd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
+	f.rawfd = rawfd
+	return lconn, nil
+}
+
+func (f *UDPForward) Serve(lconn *net.UDPConn) error {
 	go f.recyeleSession()
 	buf := make([]byte, 64*1024)
 	oob := make([]byte, 1024)
@@ -171,7 +182,7 @@ func (f *UDPForward) ListenAndServe() error {
 				continue
 			}
 
-			go f.forwardUDP(stream, key, rawfd, origindst, raddr)
+			go f.forwardUDP(stream, key, origindst, raddr)
 		}
 
 		stream := udpsess.stream
@@ -188,7 +199,7 @@ func (f *UDPForward) ListenAndServe() error {
 }
 
 // forwardUDP reads from stream and write to tofd via rawsocket
-func (f *UDPForward) forwardUDP(stream *yamux.Stream, sessionKey string, tofd int, fromaddr, toaddr *net.UDPAddr) {
+func (f *UDPForward) forwardUDP(stream *yamux.Stream, sessionKey string, fromaddr, toaddr *net.UDPAddr) {
 	defer stream.Close()
 	defer func() {
 		f.udpsessLock.Lock()
@@ -220,7 +231,7 @@ func (f *UDPForward) forwardUDP(stream *yamux.Stream, sessionKey string, tofd in
 			break
 		}
 
-		err = sendUDPViaRaw(tofd, fromaddr, toaddr, buf)
+		err = sendUDPViaRaw(f.rawfd, fromaddr, toaddr, buf)
 		if err != nil {
 			logs.Error("send via raw socket fail: %v", err)
 		}
