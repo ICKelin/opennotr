@@ -113,7 +113,6 @@ func (f *UDPForward) Listen() (*net.UDPConn, error) {
 		logs.Error("call socket fail: %v", err)
 		return nil, err
 	}
-	defer syscall.Close(rawfd)
 
 	err = syscall.SetsockoptInt(rawfd, syscall.IPPROTO_IP, syscall.IP_HDRINCL, 1)
 	if err != nil {
@@ -248,17 +247,14 @@ func (f *UDPForward) forwardUDP(stream *yamux.Stream, sessionKey string, fromadd
 func (f *UDPForward) recyeleSession() {
 	tick := time.NewTicker(time.Second * 5)
 	for range tick.C {
-		total, timeout := len(f.udpSessions), 0
 		f.udpsessLock.Lock()
 		for k, s := range f.udpSessions {
 			if time.Now().Sub(s.lastActive).Seconds() > float64(f.sessionTimeout) {
 				logs.Warn("remove udp %v session, lastActive: %v", k, s.lastActive)
-				timeout += 1
 				delete(f.udpSessions, k)
 			}
 		}
 		f.udpsessLock.Unlock()
-		logs.Debug("total %d, timeout %d, left: %d", total, timeout, total-timeout)
 	}
 }
 

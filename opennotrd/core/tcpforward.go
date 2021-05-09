@@ -24,7 +24,10 @@ type TCPForward struct {
 	// readTimeout defines the tcp connection write timeout in second
 	// default value set to 10 seconds
 	readTimeout time.Duration
-	sessMgr     *SessionManager
+
+	// the session manager is the global session manager
+	// it stores opennotr_client to opennotr_server connection
+	sessMgr *SessionManager
 }
 
 func NewTCPForward(cfg TCPForwardConfig) *TCPForward {

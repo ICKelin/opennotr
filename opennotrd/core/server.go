@@ -166,11 +166,9 @@ func (s *Server) onConn(conn net.Conn) {
 			return
 
 		case <-rttInterval.C:
-			rx := sess.ResetRx()
-			tx := sess.ResetTx()
 			rtt, _ := mux.Ping()
-			logs.Debug("session %s rtt %dms, rx %d tx %d",
-				sess.conn.RemoteAddr().String(), rtt.Milliseconds(), rx, tx)
+			logs.Debug("session: %s rtt: %4dms",
+				sess.conn.RemoteAddr().String(), rtt.Milliseconds())
 		}
 	}
 }
