@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net"
 	"sync"
+	"time"
 
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
 	"github.com/ICKelin/opennotr/pkg/logs"
@@ -67,6 +68,10 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 	// todo: optimize session timeout
 	sess := sync.Map{}
 
+	// sessionTimeout store all session key active time
+	// the purpose of this is to avoid too session without expired
+	sessionTimeout := sync.Map{}
+
 	// close all backend sockets
 	// this action may end udpCopy
 	defer func() {
@@ -76,6 +81,24 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 			}
 			return true
 		})
+	}()
+
+	go func() {
+		tick := time.NewTicker(time.Second * 30)
+		for range tick.C {
+			sessionTimeout.Range(func(k, v interface{}) bool {
+				lastActiveAt, ok := v.(time.Time)
+				if !ok {
+					return true
+				}
+
+				// todo: configure udp session timeout
+				if time.Now().Sub(lastActiveAt).Seconds() > 30 {
+					sess.Delete(k)
+				}
+				return true
+			})
+		}
 	}()
 
 	var buf = make([]byte, 64*1024)
@@ -102,12 +125,14 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 				break
 			}
 			sess.Store(key, backendConn)
+			sessionTimeout.Store(key, time.Now())
 
 			// read from $to address and write to $from address
 			go p.udpCopy(lis, backendConn, raddr)
 		}
 
 		val, _ = sess.Load(key)
+		sessionTimeout.Store(key, time.Now())
 		// read from $from address and write to $to address
 		val.(*net.UDPConn).Write(buf[:nr])
 	}
