@@ -60,11 +60,13 @@ opennotr内置的协议也是以插件的形式存在的，只是默认导入到
 
 最上层是服务端所在的机器，同时也作为虚拟局域网当中的网关，具备该局域网的IP地址`100.64.240.1`，opennotr提供能够在`Public Cloud`层可通过`100.64.240.100`访问`Device/PC behind Routed`的能力。在这个能力的基础之上构建整个内网穿透体系。
 
-上图中的虚拟IP不存在任何网卡，只是内部虚拟出来的一个ip，便于流量劫持，opennotr通过透明代理，将访问虚拟ip的流量转到本机监听的端口，然后查找该虚拟ip对应的客户端长连接，将流量通过长连接下发到客户端，从而实现穿透。
+上图中，虚拟IP不存在任何网卡，只是内部虚拟出来的一个ip，便于流量劫持，opennotr通过透明代理，将访问虚拟ip的流量转到本机监听的端口，然后查找该虚拟ip对应的客户端长连接，将流量通过长连接下发到客户端，从而实现穿透。
 
-为了实现http，引入了openresty作为反向代理服务器(其实最初是使用的nginx reload)，upstream的地址是`100.64.240.100`，从openresty的层面来看，并不关注内网地址和外网地址，只要能通就行，从上面我们知道opennotr底层就是构建一个VPN隧道，因此能通。
+上图中，openresty是基于我openresty开发的http网关，目的是支持动态upstream，可通过接口增删upstream，感兴趣的可以查看[resty-upstream](https://github.com/ICKelin/resty-upstream)，当有客户端连接上来时，会调用`resty-upstream`提供的接口新增配置，当客户端断开连接时，会调用`resty-upstream`提供的删除接口删除配置。
 
-针对tcp和udp，opennotr倒是没有使用openresty的功能，而是自己开发的代理程序，当前也是集成在opennotrd程序当中，具体可参考以下两个文件。
+从整个系统的层面，openresty的upstream的地址为opennotr客户端分配的lan地址，至于如何与客户端lan地址通信，这是opennotr处理的事情，对于openresty而言是透明的。
+
+上图中，针对tcp和udp，opennotr倒是没有使用openresty的功能，而是自己开发的代理程序，当前也是集成在opennotrd程序当中，具体可参考以下两个文件。
 
 - [tcpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/tcpproxy/tcpproxy.go)
 - [udpproxy.go](https://github.com/ICKelin/opennotr/blob/master/opennotrd/plugin/udpproxy/udpproxy.go)
@@ -109,8 +111,12 @@ server:
   listen: ":10100"
   authKey: "client server exchange key"
   domain: "open.notr.tech"
-  tcplisten: ":4398"
-  udplisten: ":4399"
+
+tcpforward:
+  listen: ":4398"
+
+udpforward:
+  listen: ":4399"
 
 dhcp:
   cidr: "100.64.242.1/24"
@@ -118,16 +124,10 @@ dhcp:
 
 plugin:
   tcp: |
-    {
-      "PortMin": 10000,
-      "PortMax": 20000
-    }
+    {}
 
   udp: |
-    {
-      "PortMin": 20000,
-      "PortMax": 30000
-    }
+    {}
 
   http: |
     {
@@ -156,12 +156,10 @@ plugin:
 或者您也可以使用docker-compose启动
 
 ```
-wget https://github.com/ICKelin/opennotr/blob/develop/docker-build/docker-compose.yaml
+wget https://github.com/ICKelin/opennotr/blob/master/docker-build/docker-compose.yaml
 
 docker-compose up -d opennotrd
 ```
-
-如果您通过ifconfig命令可以看到tunX之类的网卡，那么说明启动成功了
 
 > 注意:
 > 有的服务器没有将iptables的forward默认设置为ACCEPT，会导致失败，需要使用以下命令将其设置为ACCEPT
@@ -170,7 +168,7 @@ docker-compose up -d opennotrd
 ### 运行opennotr
 opennotr的启动比较简单，首先需要准备配置.
 
-```
+```yaml
 serverAddr: "demo.notr.tech:10100"
 key: "client server exchange key"
 domain: "cloud.dahuizong.com"
@@ -211,7 +209,6 @@ forwards:
 
 - [opennotr基本用法](https://www.zhihu.com/zvideo/1348958178885963776)
 - [opennotr进阶-使用域名](https://www.zhihu.com/zvideo/1357007720181293056)
-
 
 ## 插件开发
 要开发opennotr支持的插件，您需要实现以下接口:
