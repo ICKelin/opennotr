@@ -37,6 +37,9 @@ type ForwardItem struct {
 	// the traffic will be forward to $LocalIP:$LocalPort
 	// for example: 127.0.0.1:8080. 192.168.31.65:8080
 	LocalIP string `json:"localIP"`
+
+	// raw config pass to server
+	RawConfig string `json:"rawConfig"`
 }
 
 type S2CAuth struct {

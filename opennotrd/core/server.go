@@ -137,6 +137,7 @@ func (s *Server) onConn(conn net.Conn) {
 				To:            fmt.Sprintf("%s:%s", vip, localPort),
 				Domain:        auth.Domain,
 				RecycleSignal: make(chan struct{}),
+				Ctx:           forward.RawConfig,
 			}
 
 			err = s.pluginMgr.AddProxy(item)
