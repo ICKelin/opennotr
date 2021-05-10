@@ -131,7 +131,11 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 			go p.udpCopy(lis, backendConn, raddr)
 		}
 
-		val, _ = sess.Load(key)
+		val, ok = sess.Load(key)
+		if !ok {
+			continue
+		}
+
 		sessionTimeout.Store(key, time.Now())
 		// read from $from address and write to $to address
 		val.(*net.UDPConn).Write(buf[:nr])
