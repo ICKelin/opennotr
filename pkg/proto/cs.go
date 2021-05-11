@@ -19,27 +19,27 @@ type S2CHeartbeat struct {
 type C2SHeartbeat struct{}
 
 type C2SAuth struct {
-	Key     string        `json:"key"`
-	Domain  string        `json:"domain"`
-	Forward []ForwardItem `json:"forwards"`
+	Key     string        `json:"key" yaml:"key"`
+	Domain  string        `json:"domain" yaml:"domain"`
+	Forward []ForwardItem `json:"forwards" yaml:"forwards"`
 }
 
 type ForwardItem struct {
 	// forward protocol. eg: tcp, udp, https, http
-	Protocol string `json:"protocol"`
+	Protocol string `json:"protocol" yaml:"protocol"`
 
 	// forward ports
 	// key is the port opennotrd listen
 	// value is local port
-	Ports map[int]string `json:"ports"`
+	Ports map[int]string `json:"ports" yaml:"ports"`
 
 	// local ip, default is 127.0.0.1
 	// the traffic will be forward to $LocalIP:$LocalPort
 	// for example: 127.0.0.1:8080. 192.168.31.65:8080
-	LocalIP string `json:"localIP"`
+	LocalIP string `json:"localIP" yaml:"localIP"`
 
 	// raw config pass to server
-	RawConfig string `json:"rawConfig"`
+	RawConfig string `json:"rawConfig" yaml:"rawConfig"`
 }
 
 type S2CAuth struct {

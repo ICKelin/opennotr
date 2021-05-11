@@ -74,7 +74,7 @@ func (s *Server) onConn(conn net.Conn) {
 	auth := proto.C2SAuth{}
 	err := proto.ReadJSON(conn, &auth)
 	if err != nil {
-		logs.Error("bad request, authorize fail: %v", err)
+		logs.Error("bad request, authorize fail: %v %v", err, auth)
 		return
 	}
 
