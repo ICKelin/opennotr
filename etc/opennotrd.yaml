@@ -13,6 +13,10 @@ dhcp:
   cidr: "100.64.242.1/24"
   ip: "100.64.242.1"
 
+# resolver:
+#   etcdEndpoints: 
+#     - 127.0.0.1:2379
+
 plugin:
   tcp: |
     {}
@@ -36,3 +40,5 @@ plugin:
     {
       "adminUrl": "http://127.0.0.1:81/upstreams"
     }
+  dummy: |
+    {}

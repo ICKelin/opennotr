@@ -1,6 +1,5 @@
 serverAddr: "demo.notr.tech:10100"
 key: "client server exchange key"
-domain: "a.dahuizong.com"
 forwards:
   - protocol: tcp
     ports:
