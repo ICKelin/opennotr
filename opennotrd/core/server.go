@@ -123,10 +123,9 @@ func (s *Server) onConn(conn net.Conn) {
 	logs.Info("select domain: %s", auth.Domain)
 
 	// create forward
-	// $publicPort => vip:$localPort
-	// 1. for from address, we listen 0.0.0.0:$inport
-	// from member is not used for restyproxy
-	// 2. for to address, we use $vip:$upstreamPort
+	// 0.0.0.0:$publicPort => $vip:$localPort
+	// 1. for from address, we listen 0.0.0.0:$publicPort
+	// 2. for to address, we use $vip:$localPort
 	// the vip is the virtual lan ip address
 	// Domain is only use for restyproxy
 	for _, forward := range auth.Forward {

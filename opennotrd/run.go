@@ -19,7 +19,7 @@ func Run() {
 		return
 	}
 
-	logs.Init("opennotrd.log", "debug", 10)
+	logs.Init("opennotrd.log", "info", 10)
 	logs.Info("config: %v", cfg)
 
 	// create dhcp manager

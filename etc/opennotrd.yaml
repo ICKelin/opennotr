@@ -15,15 +15,11 @@ dhcp:
 
 plugin:
   tcp: |
-    {
-      "PortMin": 10000,
-      "PortMax": 20000
-    }
+    {}
 
   udp: |
     {
-      "PortMin": 20000,
-      "PortMax": 30000
+      "sessionTimeout": 30
     }
 
   http: |

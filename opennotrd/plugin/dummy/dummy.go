@@ -21,4 +21,5 @@ func (d *DummyPlugin) RunProxy(meta *plugin.PluginMeta) error {
 	logs.Info("dummy plugin client config: %v", meta.Ctx)
 	return nil
 }
+
 func (d *DummyPlugin) StopProxy(meta *plugin.PluginMeta) {}

@@ -11,13 +11,35 @@ import (
 	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
+// default timeout for udp session
+var defaultTimeout = 30
+
 func init() {
 	plugin.Register("udp", &UDPProxy{})
 }
 
-type UDPProxy struct{}
+type config struct {
+	// session timeout(second)
+	SessionTimeout int `json:"sessionTimeout"`
+}
 
-func (p *UDPProxy) Setup(config json.RawMessage) error { return nil }
+type UDPProxy struct {
+	cfg config
+}
+
+func (p *UDPProxy) Setup(rawMessage json.RawMessage) error {
+	var cfg config
+	err := json.Unmarshal(rawMessage, &cfg)
+	if err != nil {
+		return err
+	}
+
+	if cfg.SessionTimeout <= 0 {
+		cfg.SessionTimeout = defaultTimeout
+	}
+	p.cfg = cfg
+	return nil
+}
 
 func (p *UDPProxy) StopProxy(item *plugin.PluginMeta) {
 	select {
@@ -65,7 +87,6 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 	// sess store all backend connection
 	// key: client address
 	// value: *net.UDPConn
-	// todo: optimize session timeout
 	sess := sync.Map{}
 
 	// sessionTimeout store all session key active time
@@ -84,7 +105,12 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 	}()
 
 	go func() {
-		tick := time.NewTicker(time.Second * 30)
+		timeout := p.cfg.SessionTimeout
+		interval := timeout / 2
+		if interval <= 0 {
+			interval = timeout
+		}
+		tick := time.NewTicker(time.Second * time.Duration(interval))
 		for range tick.C {
 			sessionTimeout.Range(func(k, v interface{}) bool {
 				lastActiveAt, ok := v.(time.Time)
@@ -92,8 +118,7 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 					return true
 				}
 
-				// todo: configure udp session timeout
-				if time.Now().Sub(lastActiveAt).Seconds() > 30 {
+				if time.Now().Sub(lastActiveAt).Seconds() > float64(timeout) {
 					sess.Delete(k)
 				}
 				return true
@@ -111,7 +136,6 @@ func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {
 
 		key := raddr.String()
 		val, ok := sess.Load(key)
-
 		if !ok {
 			backendAddr, err := net.ResolveUDPAddr("udp", item.To)
 			if err != nil {
