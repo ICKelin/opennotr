@@ -133,11 +133,9 @@ func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 		io.Copy(remoteConn, stream)
 	}()
 
-	go func() {
-		defer remoteConn.Close()
-		defer stream.Close()
-		io.Copy(stream, remoteConn)
-	}()
+	defer remoteConn.Close()
+	defer stream.Close()
+	io.Copy(stream, remoteConn)
 }
 
 func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
@@ -177,25 +175,23 @@ func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 		}
 	}()
 
-	go func() {
-		defer remoteConn.Close()
-		defer stream.Close()
-		buf := make([]byte, 64*1024)
-		for {
-			nr, err := remoteConn.Read(buf)
-			if err != nil {
-				log.Println(err)
-				break
-			}
-
-			bytes := encode(buf[:nr])
-			_, err = stream.Write(bytes)
-			if err != nil {
-				log.Println(err)
-				break
-			}
+	defer remoteConn.Close()
+	defer stream.Close()
+	buf := make([]byte, 64*1024)
+	for {
+		nr, err := remoteConn.Read(buf)
+		if err != nil {
+			log.Println(err)
+			break
 		}
-	}()
+
+		bytes := encode(buf[:nr])
+		_, err = stream.Write(bytes)
+		if err != nil {
+			log.Println(err)
+			break
+		}
+	}
 }
 
 func encode(raw []byte) []byte {
