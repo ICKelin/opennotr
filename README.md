@@ -161,10 +161,6 @@ wget https://github.com/ICKelin/opennotr/blob/master/docker-build/docker-compose
 docker-compose up -d opennotrd
 ```
 
-> 注意:
-> 有的服务器没有将iptables的forward默认设置为ACCEPT，会导致失败，需要使用以下命令将其设置为ACCEPT
-> iptables -t filter -P FORWARD ACCEPT
-
 ### 运行opennotr
 opennotr的启动比较简单，首先需要准备配置.
 
