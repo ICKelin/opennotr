@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/ICKelin/opennotr/pkg/proto"
@@ -18,6 +19,8 @@ type Client struct {
 	key      string
 	domain   string
 	forwards []proto.ForwardItem
+	udppool  sync.Pool
+	tcppool  sync.Pool
 }
 
 func NewClient(cfg *Config) *Client {
@@ -26,6 +29,16 @@ func NewClient(cfg *Config) *Client {
 		key:      cfg.Key,
 		domain:   cfg.Domain,
 		forwards: cfg.Forwards,
+		tcppool: sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 4096)
+			},
+		},
+		udppool: sync.Pool{
+			New: func() interface{} {
+				return make([]byte, 64*1024)
+			},
+		},
 	}
 }
 
@@ -130,12 +143,18 @@ func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 	go func() {
 		defer remoteConn.Close()
 		defer stream.Close()
-		io.Copy(remoteConn, stream)
+		obj := c.tcppool.Get()
+		buf := obj.([]byte)
+		defer c.tcppool.Put(buf)
+
+		io.CopyBuffer(remoteConn, stream, buf)
 	}()
 
 	defer remoteConn.Close()
 	defer stream.Close()
-	io.Copy(stream, remoteConn)
+	obj := c.tcppool.Get()
+	buf := obj.([]byte)
+	io.CopyBuffer(stream, remoteConn, buf)
 }
 
 func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
@@ -157,6 +176,8 @@ func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 		defer remoteConn.Close()
 		defer stream.Close()
 		hdr := make([]byte, 2)
+		obj := c.udppool.Get()
+		buf := obj.([]byte)
 		for {
 			_, err := io.ReadFull(stream, hdr)
 			if err != nil {
@@ -164,8 +185,7 @@ func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 				break
 			}
 			nlen := binary.BigEndian.Uint16(hdr)
-			buf := make([]byte, nlen)
-			_, err = io.ReadFull(stream, buf)
+			_, err = io.ReadFull(stream, buf[:nlen])
 			if err != nil {
 				log.Println("read stream body fail: ", err)
 				break
