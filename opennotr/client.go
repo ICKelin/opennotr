@@ -154,6 +154,7 @@ func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 	defer stream.Close()
 	obj := c.tcppool.Get()
 	buf := obj.([]byte)
+	defer c.tcppool.Put(buf)
 	io.CopyBuffer(stream, remoteConn, buf)
 }
 
@@ -178,6 +179,7 @@ func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 		hdr := make([]byte, 2)
 		obj := c.udppool.Get()
 		buf := obj.([]byte)
+		defer c.udppool.Put(buf)
 		for {
 			_, err := io.ReadFull(stream, hdr)
 			if err != nil {
@@ -197,7 +199,9 @@ func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 
 	defer remoteConn.Close()
 	defer stream.Close()
-	buf := make([]byte, 64*1024)
+	obj := c.udppool.Get()
+	buf := obj.([]byte)
+	defer c.udppool.Put(buf)
 	for {
 		nr, err := remoteConn.Read(buf)
 		if err != nil {
