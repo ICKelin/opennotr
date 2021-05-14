@@ -122,7 +122,6 @@ func (c *Client) handleStream(stream *yamux.Stream) {
 		log.Println("unmarshal fail: ", err)
 		return
 	}
-
 	switch proxyProtocol.Protocol {
 	case "tcp":
 		c.tcpProxy(stream, &proxyProtocol)
@@ -177,23 +176,22 @@ func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 		defer remoteConn.Close()
 		defer stream.Close()
 		hdr := make([]byte, 2)
-		obj := c.udppool.Get()
-		buf := obj.([]byte)
-		defer c.udppool.Put(buf)
 		for {
+
 			_, err := io.ReadFull(stream, hdr)
 			if err != nil {
 				log.Println("read stream fail: ", err)
 				break
 			}
 			nlen := binary.BigEndian.Uint16(hdr)
-			_, err = io.ReadFull(stream, buf[:nlen])
+			buf := make([]byte, nlen)
+			nr, err := io.ReadFull(stream, buf)
 			if err != nil {
 				log.Println("read stream body fail: ", err)
 				break
 			}
 
-			remoteConn.Write(buf)
+			remoteConn.Write(buf[:nr])
 		}
 	}()
 
