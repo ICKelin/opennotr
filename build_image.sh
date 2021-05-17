@@ -2,4 +2,4 @@
 ./build_exec.sh
 
 cd $WORKSPACE/docker-build
-docker build . -t opennotr
+docker build . -t opennotrd

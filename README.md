@@ -40,7 +40,7 @@ opennotr内置的协议也是以插件的形式存在的，只是默认导入到
 - [如何开始使用](#如何开始使用)
     - [安装opennotrd](#安装opennotrd)
     - [运行opennotr](#运行opennotr)
-    - [相关文章与视频]()
+    - [相关文章与视频](#相关文章和视频)
 - [插件开发](#插件开发)
 - [有问题怎么办](#有问题怎么办)
 - [关于作者](#关于作者)
@@ -274,6 +274,7 @@ import (
 
 ## 有问题怎么办
 
+- [wiki](https://github.com/ICKelin/opennotr/wiki)
 - [查看文档](https://github.com/ICKelin/opennotr/tree/master/doc)
 - [提交issue](https://github.com/ICKelin/opennotr/issues)
 - [查看源码](https://github.com/ICKelin/opennotr)
