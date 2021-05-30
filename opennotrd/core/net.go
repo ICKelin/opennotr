@@ -7,7 +7,7 @@ import (
 	"net"
 	"syscall"
 
-	"github.com/ICKelin/opennotr/pkg/proto"
+	"github.com/ICKelin/opennotr/internal/proto"
 )
 
 func checksumAdd(buf []byte, seed uint32) uint32 {

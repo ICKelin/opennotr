@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 
-	"github.com/ICKelin/opennotr/pkg/proto"
+	"github.com/ICKelin/opennotr/internal/proto"
 	"gopkg.in/yaml.v2"
 )
 

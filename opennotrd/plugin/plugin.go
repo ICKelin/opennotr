@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ICKelin/opennotr/pkg/logs"
+	"github.com/ICKelin/opennotr/internal/logs"
 )
 
 var pluginMgr = &PluginManager{

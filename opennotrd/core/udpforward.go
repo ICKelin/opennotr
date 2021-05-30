@@ -11,7 +11,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/ICKelin/opennotr/pkg/logs"
+	"github.com/ICKelin/opennotr/internal/logs"
 	"github.com/hashicorp/yamux"
 )
 

@@ -9,8 +9,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/ICKelin/opennotr/internal/logs"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
-	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
 var restyAdminUrl string

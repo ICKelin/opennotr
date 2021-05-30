@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ICKelin/opennotr/pkg/proto"
+	"github.com/ICKelin/opennotr/internal/proto"
 	"github.com/hashicorp/yamux"
 )
 

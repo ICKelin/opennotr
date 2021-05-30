@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ICKelin/opennotr/internal/logs"
+	"github.com/ICKelin/opennotr/internal/proto"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
-	"github.com/ICKelin/opennotr/pkg/logs"
-	"github.com/ICKelin/opennotr/pkg/proto"
 	"github.com/hashicorp/yamux"
 )
 

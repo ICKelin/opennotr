@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ICKelin/opennotr/internal/logs"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
-	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
 // default timeout for udp session

@@ -3,8 +3,8 @@ package dummy
 import (
 	"encoding/json"
 
+	"github.com/ICKelin/opennotr/internal/logs"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
-	"github.com/ICKelin/opennotr/pkg/logs"
 )
 
 func init() {
