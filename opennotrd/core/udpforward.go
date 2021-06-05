@@ -12,7 +12,7 @@ import (
 	"unsafe"
 
 	"github.com/ICKelin/opennotr/internal/logs"
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 )
 
 var (
@@ -24,7 +24,7 @@ var (
 )
 
 type udpSession struct {
-	stream     *yamux.Stream
+	stream     *smux.Stream
 	lastActive time.Time
 }
 
@@ -198,7 +198,7 @@ func (f *UDPForward) Serve(lconn *net.UDPConn) error {
 }
 
 // forwardUDP reads from stream and write to tofd via rawsocket
-func (f *UDPForward) forwardUDP(stream *yamux.Stream, sessionKey string, fromaddr, toaddr *net.UDPAddr) {
+func (f *UDPForward) forwardUDP(stream *smux.Stream, sessionKey string, fromaddr, toaddr *net.UDPAddr) {
 	defer stream.Close()
 	defer func() {
 		f.udpsessLock.Lock()

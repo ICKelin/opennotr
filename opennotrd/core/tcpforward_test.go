@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 )
 
 func init() {
@@ -50,7 +50,7 @@ func runBackend() {
 		panic(err)
 	}
 	defer conn.Close()
-	sess, err := yamux.Client(conn, nil)
+	sess, err := smux.Client(conn, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -84,7 +84,7 @@ func runserver(listener net.Listener) {
 		}
 
 		go func() {
-			sess, err := yamux.Server(conn, nil)
+			sess, err := smux.Server(conn, nil)
 			if err != nil {
 				panic(err)
 			}

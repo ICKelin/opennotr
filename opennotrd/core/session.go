@@ -3,7 +3,7 @@ package core
 import (
 	"sync"
 
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 )
 
 var sessionMgr = &SessionManager{}
@@ -20,12 +20,12 @@ func GetSessionManager() *SessionManager {
 
 // Session defines each opennotr_client to opennotr_server connection
 type Session struct {
-	conn    *yamux.Session
+	conn    *smux.Session
 	rxbytes uint64
 	txbytes uint64
 }
 
-func newSession(conn *yamux.Session, vip string) *Session {
+func newSession(conn *smux.Session, vip string) *Session {
 	return &Session{
 		conn: conn,
 	}

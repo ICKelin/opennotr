@@ -11,7 +11,7 @@ import (
 	"github.com/ICKelin/opennotr/internal/logs"
 	"github.com/ICKelin/opennotr/internal/proto"
 	"github.com/ICKelin/opennotr/opennotrd/plugin"
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 )
 
 type Server struct {
@@ -148,9 +148,9 @@ func (s *Server) onConn(conn net.Conn) {
 		}
 	}
 
-	mux, err := yamux.Server(conn, nil)
+	mux, err := smux.Server(conn, nil)
 	if err != nil {
-		logs.Error("yamux server fail:%v", err)
+		logs.Error("smux server fail:%v", err)
 		return
 	}
 

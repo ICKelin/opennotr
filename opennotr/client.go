@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/ICKelin/opennotr/internal/proto"
-	"github.com/hashicorp/yamux"
+	"github.com/xtaci/smux"
 )
 
 type Client struct {
@@ -76,7 +76,7 @@ func (c *Client) Run() {
 		log.Println("vhost:", auth.Vip)
 		log.Println("domain:", auth.Domain)
 
-		mux, err := yamux.Client(conn, nil)
+		mux, err := smux.Client(conn, nil)
 		if err != nil {
 			log.Println(err)
 			time.Sleep(time.Second * 3)
@@ -98,7 +98,7 @@ func (c *Client) Run() {
 	}
 }
 
-func (c *Client) handleStream(stream *yamux.Stream) {
+func (c *Client) handleStream(stream *smux.Stream) {
 	lenbuf := make([]byte, 2)
 	_, err := stream.Read(lenbuf)
 	if err != nil {
@@ -130,7 +130,7 @@ func (c *Client) handleStream(stream *yamux.Stream) {
 	}
 }
 
-func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
+func (c *Client) tcpProxy(stream *smux.Stream, p *proto.ProxyProtocol) {
 	addr := fmt.Sprintf("%s:%s", p.DstIP, p.DstPort)
 	remoteConn, err := net.DialTimeout("tcp", addr, time.Second*10)
 	if err != nil {
@@ -157,7 +157,7 @@ func (c *Client) tcpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
 	io.CopyBuffer(stream, remoteConn, buf)
 }
 
-func (c *Client) udpProxy(stream *yamux.Stream, p *proto.ProxyProtocol) {
+func (c *Client) udpProxy(stream *smux.Stream, p *proto.ProxyProtocol) {
 	addr := fmt.Sprintf("%s:%s", p.DstIP, p.DstPort)
 	raddr, err := net.ResolveUDPAddr("udp", addr)
 	if err != nil {
