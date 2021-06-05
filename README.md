@@ -25,6 +25,8 @@
 
 **状态: Stable**
 
+**[在线试用](https://github.com/ICKelin/opennotr/wiki/opennotr%E5%9C%A8%E7%BA%BF%E4%BD%93%E9%AA%8C)**
+
 opennotr是一款开源的内网穿透软件，内部使用`透明代理`实现流量劫持，同时，基于虚拟IP构建虚拟局域网，整体技术与k8s的service技术类似，虚拟IP与service ip类似，只在opennotr的服务端所在的机器可以访问，在其他任何位置都无法访问该虚拟ip。
 
 opennotr支持多种协议，包括http，https，grpc，tcp，udp，为了实现http，https，grpc协议端口复用，opennotr引入了openresty作为网关，多个客户端不同域名可以共享http的80，https的443端口，不需要额外的端口。

@@ -3,7 +3,7 @@ key: "http://www.notr.tech"
 forwards:
   - protocol: tcp
     ports:
-      0: 2222
+      222: 2222
   
   - protocol: udp
     ports:
