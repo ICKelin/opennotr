@@ -13,6 +13,13 @@ var pluginMgr = &PluginManager{
 	plugins: make(map[string]IPlugin),
 }
 
+// ProxyTuple defineds plugins real proxy address
+type ProxyTuple struct {
+	Protocol string
+	FromPort string
+	ToPort   string
+}
+
 // PluginMeta defineds data that the plugins needs
 // these members are filled by server.go
 type PluginMeta struct {
@@ -58,7 +65,7 @@ type IPlugin interface {
 	StopProxy(item *PluginMeta)
 
 	// Run a proxy, it may be called by client's connection established
-	RunProxy(item *PluginMeta) error
+	RunProxy(item *PluginMeta) (*ProxyTuple, error)
 }
 
 type PluginManager struct {
@@ -103,26 +110,26 @@ func Setup(plugins map[string]string) error {
 	return nil
 }
 
-func (p *PluginManager) AddProxy(item *PluginMeta) error {
+func (p *PluginManager) AddProxy(item *PluginMeta) (*ProxyTuple, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	key := item.identify()
 	if _, ok := p.routes[key]; ok {
-		return fmt.Errorf("port %s is in used", key)
+		return nil, fmt.Errorf("port %s is in used", key)
 	}
 
 	plug, ok := p.plugins[item.Protocol]
 	if !ok {
-		return fmt.Errorf("proxy %s not register", item.Protocol)
+		return nil, fmt.Errorf("proxy %s not register", item.Protocol)
 	}
 
-	err := plug.RunProxy(item)
+	tuple, err := plug.RunProxy(item)
 	if err != nil {
 		logs.Error("run proxy fail: %v", err)
-		return err
+		return nil, err
 	}
 	p.routes[key] = item
-	return nil
+	return tuple, nil
 }
 
 func (p *PluginManager) DelProxy(item *PluginMeta) {

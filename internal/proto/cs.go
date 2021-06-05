@@ -21,7 +21,7 @@ type C2SHeartbeat struct{}
 type C2SAuth struct {
 	Key     string        `json:"key" yaml:"key"`
 	Domain  string        `json:"domain" yaml:"domain"`
-	Forward []ForwardItem `json:"forwards" yaml:"forwards"`
+	Forward []ForwardItem `json:"forwards" yaml:"forwards"` // request forwards, not real, it depends on opennotrd
 }
 
 type ForwardItem struct {
@@ -43,8 +43,15 @@ type ForwardItem struct {
 }
 
 type S2CAuth struct {
-	Domain string `json:"domain"` // 分配域名
-	Vip    string `json:"vip"`    // 分配虚拟ip地址
+	Domain     string        `json:"domain"`     // uniq domain for opennotr
+	Vip        string        `json:"vip"`        // vip for opennotr
+	ProxyInfos []*ProxyTuple `json:"proxyInfos"` // real proxy table
+}
+
+type ProxyTuple struct {
+	Protocol string
+	FromPort string
+	ToPort   string
 }
 
 type ProxyProtocol struct {

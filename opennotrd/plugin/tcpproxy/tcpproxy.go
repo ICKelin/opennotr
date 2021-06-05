@@ -26,11 +26,13 @@ func (t *TCPProxy) StopProxy(item *plugin.PluginMeta) {
 	}
 }
 
-func (t *TCPProxy) RunProxy(item *plugin.PluginMeta) error {
+// RunProxy runs a tcp server and proxy to item.To
+// RunProxy may change item.From address to the real listenner address
+func (t *TCPProxy) RunProxy(item *plugin.PluginMeta) (*plugin.ProxyTuple, error) {
 	from, to := item.From, item.To
 	lis, err := net.Listen("tcp", from)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	fin := make(chan struct{})
@@ -73,7 +75,14 @@ func (t *TCPProxy) RunProxy(item *plugin.PluginMeta) error {
 		}
 	}()
 
-	return nil
+	_, fromPort, _ := net.SplitHostPort(lis.Addr().String())
+	_, toPort, _ := net.SplitHostPort(item.To)
+
+	return &plugin.ProxyTuple{
+		Protocol: item.Protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	}, nil
 }
 
 func (t *TCPProxy) doProxy(conn net.Conn, to string) {

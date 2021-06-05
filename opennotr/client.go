@@ -75,6 +75,13 @@ func (c *Client) Run() {
 		log.Println("connect success")
 		log.Println("vhost:", auth.Vip)
 		log.Println("domain:", auth.Domain)
+		for _, item := range auth.ProxyInfos {
+			fromaddr := fmt.Sprintf("%s:%s", auth.Domain, item.FromPort)
+			if len(item.FromPort) == 0 {
+				fromaddr = auth.Domain
+			}
+			log.Printf("%s://%s => 127.0.0.1:%s\n", item.Protocol, fromaddr, item.ToPort)
+		}
 
 		mux, err := smux.Client(conn, nil)
 		if err != nil {

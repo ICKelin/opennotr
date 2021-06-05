@@ -1,13 +1,13 @@
 serverAddr: "demo.notr.tech:10100"
-key: "client server exchange key"
+key: "http://www.notr.tech"
 forwards:
   - protocol: tcp
     ports:
-      2221: 2222
+      0: 2222
   
   - protocol: udp
     ports:
-      531: 53
+      0: 53
   
   - protocol: http
     ports:
@@ -21,8 +21,3 @@ forwards:
     ports:
       0: 50052
   
-  - protocol: dummy
-    ports:
-      0: 0
-    rawConfig:
-      "this is a test config pass to dummy plugin"

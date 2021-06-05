@@ -98,17 +98,6 @@ func (s *Server) onConn(conn net.Conn) {
 		return
 	}
 
-	reply := &proto.S2CAuth{
-		Vip:    vip,
-		Domain: auth.Domain,
-	}
-
-	err = proto.WriteJSON(conn, proto.CmdAuth, reply)
-	if err != nil {
-		logs.Error("write json fail: %v", err)
-		return
-	}
-
 	// dynamic dns, write domain=>ip map to etcd
 	// coredns will read records from etcd and reply to dns client
 	if s.resolver != nil {
@@ -128,6 +117,7 @@ func (s *Server) onConn(conn net.Conn) {
 	// 2. for to address, we use $vip:$localPort
 	// the vip is the virtual lan ip address
 	// Domain is only use for restyproxy
+	proxyInfos := make([]*proto.ProxyTuple, 0)
 	for _, forward := range auth.Forward {
 		for publicPort, localPort := range forward.Ports {
 			item := &plugin.PluginMeta{
@@ -139,13 +129,30 @@ func (s *Server) onConn(conn net.Conn) {
 				Ctx:           forward.RawConfig,
 			}
 
-			err = s.pluginMgr.AddProxy(item)
+			p, err := s.pluginMgr.AddProxy(item)
 			if err != nil {
 				logs.Error("add proxy fail: %v", err)
 				return
 			}
+			proxyInfos = append(proxyInfos, &proto.ProxyTuple{
+				Protocol: forward.Protocol,
+				FromPort: p.FromPort,
+				ToPort:   p.ToPort,
+			})
 			defer s.pluginMgr.DelProxy(item)
 		}
+	}
+
+	reply := &proto.S2CAuth{
+		Vip:        vip,
+		Domain:     auth.Domain,
+		ProxyInfos: proxyInfos,
+	}
+
+	err = proto.WriteJSON(conn, proto.CmdAuth, reply)
+	if err != nil {
+		logs.Error("write json fail: %v", err)
+		return
 	}
 
 	mux, err := smux.Server(conn, nil)

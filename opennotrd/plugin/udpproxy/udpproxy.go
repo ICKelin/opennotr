@@ -48,20 +48,28 @@ func (p *UDPProxy) StopProxy(item *plugin.PluginMeta) {
 	}
 }
 
-func (p *UDPProxy) RunProxy(item *plugin.PluginMeta) error {
+func (p *UDPProxy) RunProxy(item *plugin.PluginMeta) (*plugin.ProxyTuple, error) {
 	from := item.From
 	laddr, err := net.ResolveUDPAddr("udp", from)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	lis, err := net.ListenUDP("udp", laddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	go p.doProxy(lis, item)
-	return nil
+
+	_, fromPort, _ := net.SplitHostPort(lis.LocalAddr().String())
+	_, toPort, _ := net.SplitHostPort(item.To)
+
+	return &plugin.ProxyTuple{
+		Protocol: item.Protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	}, nil
 }
 
 func (p *UDPProxy) doProxy(lis *net.UDPConn, item *plugin.PluginMeta) {

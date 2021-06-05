@@ -17,9 +17,9 @@ func (d *DummyPlugin) Setup(cfg json.RawMessage) error {
 	return nil
 }
 
-func (d *DummyPlugin) RunProxy(meta *plugin.PluginMeta) error {
+func (d *DummyPlugin) RunProxy(meta *plugin.PluginMeta) (*plugin.ProxyTuple, error) {
 	logs.Info("dummy plugin client config: %v", meta.Ctx)
-	return nil
+	return &plugin.ProxyTuple{}, nil
 }
 
 func (d *DummyPlugin) StopProxy(meta *plugin.PluginMeta) {}

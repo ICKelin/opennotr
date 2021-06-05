@@ -50,10 +50,10 @@ func (p *RestyProxy) StopProxy(item *plugin.PluginMeta) {
 	p.sendDeleteReq(item.Domain, item.Protocol)
 }
 
-func (p *RestyProxy) RunProxy(item *plugin.PluginMeta) error {
+func (p *RestyProxy) RunProxy(item *plugin.PluginMeta) (*plugin.ProxyTuple, error) {
 	vip, port, err := net.SplitHostPort(item.To)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	req := &AddUpstreamBody{
@@ -64,7 +64,12 @@ func (p *RestyProxy) RunProxy(item *plugin.PluginMeta) error {
 	}
 
 	go p.sendPostReq(req)
-	return nil
+
+	_, toPort, _ := net.SplitHostPort(item.To)
+	return &plugin.ProxyTuple{
+		Protocol: item.Protocol,
+		ToPort:   toPort,
+	}, nil
 }
 
 func (p *RestyProxy) sendPostReq(body interface{}) {
