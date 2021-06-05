@@ -149,7 +149,7 @@ plugin:
 
 准备好配置之后运行以下命令即可开始启动:
 
-`docker run --privileged --net=host -v /opt/logs/opennotr:/opt/resty-upstream/logs -v /opt/data/opennotrd:/opt/conf -d opennotrd`
+`docker run --privileged --net=host -v /opt/logs/opennotr:/opt/resty-upstream/logs -v /opt/data/opennotrd:/opt/conf -d ickelin/opennotr:v1.0.4`
 
 需要配置volume，将主机目录`/opt/data/opennotrd`挂载到容器的`/opt/conf`当中，`/opt/data/opennotrd`为在上一步当中创建的配置文件，证书目录。
 

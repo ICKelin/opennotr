@@ -158,18 +158,13 @@ func (s *Server) onConn(conn net.Conn) {
 	s.sessMgr.AddSession(vip, sess)
 	defer s.sessMgr.DeleteSession(vip)
 
-	rttInterval := time.NewTicker(time.Second * 10)
-	for {
-		select {
-		case <-mux.CloseChan():
+	rttInterval := time.NewTicker(time.Millisecond * 500)
+	for range rttInterval.C {
+		if mux.IsClosed() {
 			logs.Info("session %v close", sess.conn.RemoteAddr().String())
 			return
-
-		case <-rttInterval.C:
-			rtt, _ := mux.Ping()
-			logs.Debug("session: %s rtt: %4dms",
-				sess.conn.RemoteAddr().String(), rtt.Milliseconds())
 		}
+
 	}
 }
 
